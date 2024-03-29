@@ -24,9 +24,7 @@ Thumbs.db
 # Ignore PDF files
 *.pdf
 
-# Ignore PyTorch specific files
-*.pth
-*.pt
-
-# Ignore folders inside the "data" folder in the "datasets" folder
+# Ignore some directories
 datasets/data/*/
+weights/*
+output/*
