@@ -27,3 +27,6 @@ Thumbs.db
 # Ignore PyTorch specific files
 *.pth
 *.pt
+
+# Ignore folders inside the "data" folder in the "datasets" folder
+datasets/data/*/
