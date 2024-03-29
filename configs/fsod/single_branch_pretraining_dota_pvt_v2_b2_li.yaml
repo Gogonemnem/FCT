@@ -2,7 +2,7 @@ RESUME: True
 MODEL:
   PIXEL_MEAN: [103.530, 116.280, 123.675]
   PIXEL_STD: [57.375, 57.120, 58.395]
-  WEIGHTS: "/home/bibahaduri/weights/pvt_v2_b2_li.pth" #"./pvt_v2_b2_li_C4.pth"
+  WEIGHTS: "./weights/pvt_v2_b2_li.pth" #"./pvt_v2_b2_li_C4.pth"
   MASK_ON: False
   RESNETS:
     DEPTH: 101
@@ -31,7 +31,7 @@ INPUT:
   MIN_SIZE_TEST: 800
   MAX_SIZE_TEST: 1333
 OUTPUT_DIR: "./output/fsod/single_branch_pretraining_dota_pvt_v2_b2_li/"
-DATA_DIR: "/home/bibahaduri/dota_dataset"
+DATA_DIR: "./datasets/data/dota_dataset"
 TEST:
   EVAL_PERIOD: 20000
 VERSION: 2

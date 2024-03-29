@@ -41,7 +41,7 @@ COCO_CATEGORIES = [
     {"color": [165, 42, 42], "isthing": 1, "id": 16, "name": "container-crane"},
 ]
 
-split_dir = '/home/bibahaduri/dota_dataset/coco/datasets/cocosplit/seed1729test'##'xxx/cocosplit' # please update the path in your system
+split_dir = './datasets/data/dota_dataset/coco/datasets/cocosplit/seed1729test'##'xxx/cocosplit' # please update the path in your system
 
 for shot in [10]:##[1, 2, 3, 5, 10, 30]:
     fileids = {}

@@ -25,7 +25,7 @@ import sys
 VOC_classes = [ 'bird', 'bus', 'cow', 'motorbike', 'sofa']##['airplane', 'bicycle', 'boat', 'bottle', 'car', 'cat', 'chair',    "Airplane ",
                                                                     ## 'dining table', 'dog', 'horse', 'person', 'potted plant', 'sheep',
                                                                     ## 'train', 'tv', 'bird', 'bus', 'cow', 'motorcycle', 'couch']
-split_dir = '/home/bibahaduri/pascalvoc/coco/datasets/cocosplit/seed1729'##'xxx/cocosplit' # please update the path in your system
+split_dir = './datasets/data/pascalvoc/coco/datasets/cocosplit/seed1729'##'xxx/cocosplit' # please update the path in your system
 
 for shot in [1, 3, 5, 10]:##[1, 2, 3, 5, 10, 30]:
     fileids = {}

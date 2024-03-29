@@ -2,7 +2,7 @@ _BASE_: "Base-FSOD-C4.yaml"
 MODEL:
   PIXEL_MEAN: [103.530, 116.280, 123.675]
   PIXEL_STD: [57.375, 57.120, 58.395]
-  WEIGHTS: "/home/bibahaduri/FCT/output_pascalcoco/fsod/single_branch_pretraining_coco_pvt_v2_b2_li/model_final.pth"
+  WEIGHTS: "./output_pascalcoco/fsod/single_branch_pretraining_coco_pvt_v2_b2_li/model_final.pth"
   MASK_ON: False
   RESNETS:
     DEPTH: 101
@@ -15,8 +15,8 @@ MODEL:
   RPN:
     PRE_NMS_TOPK_TEST: 12000
     POST_NMS_TOPK_TEST: 100
-OUTPUT_DIR: '/home/bibahaduri/FCT/output_pascalcoco/fsod/two_branch_training_coco_pvt_v2_b2_li'
-DATA_DIR: '/home/bibahaduri/pascalvoc'
+OUTPUT_DIR: './output_pascalcoco/fsod/two_branch_training_coco_pvt_v2_b2_li'
+DATA_DIR: './datasets/data/pascalvoc'
 DATASETS:
   TRAIN: ("pascal_2014_train_nonvoc",)
   TEST: ("pascal_2014_val2",) #("coco_2014_val",)

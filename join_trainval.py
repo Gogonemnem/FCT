@@ -1,9 +1,9 @@
 import json
 
-with open('/home/bibahaduri/dota_dataset/coco/annotations/instances_train2017.json', 'r') as f:
+with open('./datasets/data/dota_dataset/coco/annotations/instances_train2017.json', 'r') as f:
     train_data = json.load(f)
 
-with open('/home/bibahaduri/dota_dataset/coco/annotations/instances_val2017.json', 'r') as f:
+with open('./datasets/data/dota_dataset/coco/annotations/instances_val2017.json', 'r') as f:
     val_data = json.load(f)
 
 trainval_data = {

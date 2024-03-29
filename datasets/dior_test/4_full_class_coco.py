@@ -45,7 +45,7 @@ COCO_CATEGORIES = [
     {"color": [120, 166, 157], "isthing": 1, "id": 20, "name": "Wind mill"},
 ]
 
-split_dir = '/home/bibahaduri/DIOR/coco/datasets/cocosplit/seed1729test'##'xxx/cocosplit' # please update the path in your system
+split_dir = './datasets/data/DIOR/coco/datasets/cocosplit/seed1729test'##'xxx/cocosplit' # please update the path in your system
 
 for shot in [10]:##[1, 2, 3, 5, 10, 30]:
     fileids = {}

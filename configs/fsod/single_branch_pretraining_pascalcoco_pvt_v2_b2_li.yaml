@@ -1,7 +1,7 @@
 MODEL:
   PIXEL_MEAN: [103.530, 116.280, 123.675]
   PIXEL_STD: [57.375, 57.120, 58.395]
-  WEIGHTS: "/home/bibahaduri/weights/pvt_v2_b2_li.pth" #"./pvt_v2_b2_li_C4.pth"
+  WEIGHTS: "./weights/pvt_v2_b2_li.pth" #"./pvt_v2_b2_li_C4.pth"
   MASK_ON: False
   RESNETS:
     DEPTH: 101
@@ -31,7 +31,7 @@ INPUT:
   MIN_SIZE_TEST: 800
   MAX_SIZE_TEST: 1333
 OUTPUT_DIR: "./output_pascalcoco/fsod/single_branch_pretraining_coco_pvt_v2_b2_li/"
-DATA_DIR: "/home/bibahaduri/pascalvoc"
+DATA_DIR: "./datasets/data/pascalvoc"
 TEST:
   EVAL_PERIOD: 18000
 VERSION: 2

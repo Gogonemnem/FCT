@@ -70,7 +70,7 @@ def filter_coco(coco, cls_split):
 
 root_path = sys.argv[1]
 print(root_path)
-dataDir = '/home/bibahaduri/pascalvoc/coco/annotations'##'./annotations'
+dataDir = './datasets/data/pascalvoc/coco/annotations'##'./annotations'
 support_dict = {}
 
 support_dict['support_box'] = []

@@ -184,7 +184,7 @@ def crop_support(img, bbox):
         
 
 def main(shot):
-    dataDir = '/home/bibahaduri/pascalvoc/coco'##'.'
+    dataDir = './datasets/data/pascalvoc/coco'##'.'
 
     root_path = sys.argv[1]
     support_path = os.path.join(root_path, '{}_shot_support'.format(shot))

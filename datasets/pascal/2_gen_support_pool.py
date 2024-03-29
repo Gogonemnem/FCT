@@ -184,7 +184,7 @@ def crop_support(img, bbox):
         
 
 def main():
-    dataDir = '/home/bibahaduri/pascalvoc/coco'##'.'
+    dataDir = './datasets/data/pascalvoc/coco'##'.'
     root_path = sys.argv[1]
     support_path = os.path.join(root_path, 'support')
     if not isdir(support_path): 

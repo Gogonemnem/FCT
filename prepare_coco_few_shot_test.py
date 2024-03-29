@@ -22,7 +22,7 @@ def parse_args():
 
 
 def generate_seeds(args):
-    data_path = "/home/bibahaduri/pascalvoc/coco/annotations/instances_test.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
+    data_path = "./datasets/data/pascalvoc/coco/annotations/instances_test.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
     data = json.load(open(data_path))
 
     new_all_cats = []

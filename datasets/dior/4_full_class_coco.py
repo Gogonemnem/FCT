@@ -48,7 +48,7 @@ COCO_CATEGORIES = [
 
 
 
-split_dir = '/home/bibahaduri/DIOR/coco/datasets/cocosplit/seed1729'##'xxx/cocosplit' # please update the path in your system
+split_dir = './datasets/data/DIOR/coco/datasets/cocosplit/seed1729'##'xxx/cocosplit' # please update the path in your system
 
 for shot in [10]:##[1, 2, 3, 5, 10, 30]:
     fileids = {}

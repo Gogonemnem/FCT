@@ -20,7 +20,7 @@ _PREDEFINED_SPLITS_pascal = {}
 _PREDEFINED_SPLITS_pascal["pascal"] = {
     "pascal_2014_train_nonvoc": ("coco/train", "coco/new_annotations/final_split_non_voc_instances_train2014.json"), # by default no_smaller_32
     "pascal_2014_train_nonvoc_with_small": ("coco/train", "coco/new_annotations/final_split_non_voc_instances_train2014_with_small.json"), # includeing all boxes
-    "pascal_2014_val2": ("coco/test", "/home/bibahaduri/pascalvoc/coco/annotations/instances_test.json"),
+    "pascal_2014_val2": ("coco/test", "./datasets/data/pascalvoc/coco/annotations/instances_test.json"),
     "pascal_2014_train_voc_10_shot": ("coco/train", "coco/new_annotations/final_split_voc_10_shot_instances_train2014.json"),
     "pascal_2014_train_voc_1_shot": ("coco/train", "coco/new_annotations/final_split_voc_1_shot_instances_train2014.json"),
     # "coco_2014_train_voc_2_shot": ("coco/train", "coco/new_annotations/final_split_voc_2_shot_instances_train2014.json"),
@@ -106,7 +106,7 @@ _PREDEFINED_SPLITS_DIOR = {}
 _PREDEFINED_SPLITS_DIOR["dior"] = {
     "dior_2014_train_nonvoc": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014.json"), # by default no_smaller_32
     "dior_2014_train_nonvoc_with_small": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014_with_small.json"), # includeing all boxes
-    "dior_2014_val2": ("coco/test2017", "/home/bibahaduri/DIOR/coco/annotations/instances_test2017.json"),
+    "dior_2014_val2": ("coco/test2017", "./datasets/data/DIOR/coco/annotations/instances_test2017.json"),
     "dior_2014_train_voc_10_shot": ("coco/train2017", "coco/new_annotations/final_split_voc_10_shot_instances_train2014.json"),
     # "coco_2014_train_voc_1_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_1_shot_instances_train2014.json"),
     # "coco_2014_train_voc_2_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_2_shot_instances_train2014.json"),
@@ -191,7 +191,7 @@ _PREDEFINED_SPLITS_DOTA = {}
 _PREDEFINED_SPLITS_DOTA["dota"] = {
     "dota_2014_train_nonvoc": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014.json"), # by default no_smaller_32
     "dota_2014_train_nonvoc_with_small": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014_with_small.json"), # includeing all boxes
-    "dota_2014_val2": ("coco/test2017", "/home/bibahaduri/dota_dataset/coco/annotations/instances_test2017.json"),
+    "dota_2014_val2": ("coco/test2017", "./datasets/data/dota_dataset/coco/annotations/instances_test2017.json"),
     "dota_2014_train_voc_10_shot": ("coco/train2017", "coco/new_annotations/final_split_voc_10_shot_instances_train2014.json"),
     # "coco_2014_train_voc_1_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_1_shot_instances_train2014.json"),
     # "coco_2014_train_voc_2_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_2_shot_instances_train2014.json"),
@@ -272,7 +272,7 @@ _PREDEFINED_SPLITS_COCO = {}
 _PREDEFINED_SPLITS_COCO["coco"] = {
     "coco_2014_train_nonvoc": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014.json"), # by default no_smaller_32
     "coco_2014_train_nonvoc_with_small": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014_with_small.json"), # includeing all boxes
-    "coco_2014_val2": ("coco/val2017", "/home/bibahaduri/coco_dataset/coco/annotations/instances_val2017.json"),
+    "coco_2014_val2": ("coco/val2017", "./datasets/data/coco_dataset/coco/annotations/instances_val2017.json"),
     "coco_2014_train_voc_10_shot": ("coco/train2017", "coco/new_annotations/final_split_voc_10_shot_instances_train2014.json"),
     # "coco_2014_train_voc_1_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_1_shot_instances_train2014.json"),
     # "coco_2014_train_voc_2_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_2_shot_instances_train2014.json"),
@@ -465,13 +465,13 @@ def register_all_pascal_voc(root="datasets"):
 
 
 # Register them all under "./datasets"
-_root = os.getenv("DETECTRON2_DOTA", "/home/bibahaduri/dota_dataset")
+_root = os.getenv("DETECTRON2_DOTA", "./datasets/data/dota_dataset")
 register_all_dota(_root)
-_root = os.getenv("DETECTRON2_DIOR", "/home/bibahaduri/DIOR")
+_root = os.getenv("DETECTRON2_DIOR", "./datasets/data/DIOR")
 register_all_dior(_root)
-_root = os.getenv("DETECTRON2_PASCAL", "/home/bibahaduri/pascalvoc")
+_root = os.getenv("DETECTRON2_PASCAL", "./datasets/data/pascalvoc")
 register_all_pascal(_root)
-_root = os.getenv("DETECTRON2_COCO", "/home/bibahaduri/coco_dataset")
+_root = os.getenv("DETECTRON2_COCO", "./datasets/data/coco_dataset")
 register_all_coco(_root)
 
 # _root = os.getenv("DETECTRON2_DATASETS", "datasets")

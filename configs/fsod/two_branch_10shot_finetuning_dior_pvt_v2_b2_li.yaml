@@ -3,7 +3,7 @@ RESUME: True
 MODEL:
   PIXEL_MEAN: [103.530, 116.280, 123.675]
   PIXEL_STD: [57.375, 57.120, 58.395]
-  WEIGHTS: "/home/bibahaduri/FCT/output_dior/fsod/two_branch_training_dior_pvt_v2_b2_li/model_final.pth"
+  WEIGHTS: "./output_dior/fsod/two_branch_training_dior_pvt_v2_b2_li/model_final.pth"
   MASK_ON: False
   RESNETS:
     DEPTH: 101
@@ -37,7 +37,7 @@ INPUT:
   MAX_SIZE_TRAIN: 1333
   MIN_SIZE_TEST: 600
   MAX_SIZE_TEST: 1000
-OUTPUT_DIR: '/home/bibahaduri/FCT/output_dior/fsod/finetune_dir/two_branch_10shot_finetuning_dior_pvt_v2_b2_li'
-DATA_DIR: '/home/bibahaduri/DIOR'
+OUTPUT_DIR: './output_dior/fsod/finetune_dir/two_branch_10shot_finetuning_dior_pvt_v2_b2_li'
+DATA_DIR: './datasets/data/DIOR'
 TEST:
   EVAL_PERIOD: 5000

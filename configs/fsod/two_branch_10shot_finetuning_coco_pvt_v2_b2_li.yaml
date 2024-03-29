@@ -37,6 +37,6 @@ INPUT:
   MIN_SIZE_TEST: 600
   MAX_SIZE_TEST: 1000
 OUTPUT_DIR: './output/fsod/finetune_dir/two_branch_10shot_finetuning_coco_pvt_v2_b2_li'
-DATA_DIR: "/home/bibahaduri/coco_dataset"
+DATA_DIR: "./datasets/data/coco_dataset"
 TEST:
   EVAL_PERIOD: 5000

@@ -15,7 +15,7 @@ def parse_args():
 def generate_img_ids():
     anno_ids = {i: {} for i in ID2CLASS.keys()}
 
-    data_path = "/home/bibahaduri/pascalvoc/coco/annotations/instances_train.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
+    data_path = "./datasets/data/pascalvoc/coco/annotations/instances_train.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
     data = json.load(open(data_path))
     file2id = {}
     for i in data["images"]:
@@ -25,7 +25,7 @@ def generate_img_ids():
     for j in ID2CLASS.keys():
         for i in [1,2,3,5,10]:
             anno_ids[j][i] = []
-            filename = "/home/bibahaduri/pascalvoc/coco/annotations/splits/vocsplit/box_{}shot_{}_train.txt".format(i, ID2CLASS[j])
+            filename = "./datasets/data/pascalvoc/coco/annotations/splits/vocsplit/box_{}shot_{}_train.txt".format(i, ID2CLASS[j])
             with open(filename, 'r') as file:
                 for line in file:
                     # Split the line to extract the file name
@@ -39,7 +39,7 @@ def generate_img_ids():
                 #get filename  and get associated image_id  put it in the anno_ids[j][i]
 
 def generate_seeds(args):
-    data_path = "/home/bibahaduri/pascalvoc/coco/annotations/instances_train.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
+    data_path = "./datasets/data/pascalvoc/coco/annotations/instances_train.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
     data = json.load(open(data_path))
     anno_ids = generate_img_ids()
     new_all_cats = []
