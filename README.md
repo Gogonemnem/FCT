@@ -1,5 +1,5 @@
 # FCT
-This repo contains the official PyTorch implementation for the CVPR 2022 Oral paper: 'Few-Shot Object Detection with Fully Cross-Transformer' ([paper](https://arxiv.org/abs/2203.15021)).
+This repo contains an implementation for the CVPR 2022 Oral paper: 'Few-Shot Object Detection with Fully Cross-Transformer' ([paper](https://arxiv.org/abs/2203.15021)) mainly copied of the official implementation at [FCT](https://github.com/GuangxingHan/FCT/tree/main). This reimplementation includes support for two aerial images dataset of DOTA, and DIOR.
 
 <div align="center"><img src="assets/figure_1.png" width="600"></div>
 
@@ -16,9 +16,13 @@ Please note that we used detectron 0.2.1 in this project. Higher versions of det
 
 ## Data Preparation
 
-- We evaluate our model on two FSOD benchmarks PASCAL VOC and MSCOCO following the previous work [TFA](https://github.com/ucbdrive/few-shot-object-detection).
-- Please prepare the original PASCAL VOC and MSCOCO datasets and also the few-shot datasets following [TFA](https://github.com/ucbdrive/few-shot-object-detection/blob/master/datasets/README.md) in the folder ./datasets/coco and ./datasets/pascal_voc respectively.
-- Please run the scripts in ./datasets/coco and ./datasets/pascal_voc step by step to generate the support images for both many-shot base classes (used during meta-training) and few-shot classes (used during few-shot fine-tuning).
+- Mainly the model evaluate on two FSOD benchmarks PASCAL VOC and MSCOCO following the previous work [TFA](https://github.com/ucbdrive/few-shot-object-detection).
+- Please prepare the original PASCAL VOC, DIOR, DOTA and MSCOCO datasets and also the few-shot datasets following [TFA](https://github.com/ucbdrive/few-shot-object-detection/blob/master/datasets/README.md) in the folder ./datasets/coco, ./dota_dataset/coco, ./DIOR/coco and ./datasets/pascal_voc respectively.
+- Please make sure that you DIOR and DOTA datasets are in coco format
+- First run the scripts ./prepare_coco_few_shot.py and ./prepare_coco_few_shot_test.py  for creating support image list. Customize the paths in these files according to your needs. The seed 1729 is mainly used for fair comparison with [XQSA](https://github.com/pierlj/aaf_framework).
+- Please run the scripts in ./datasets/coco, ./datasets/pascal_voc, ./datasets/dota, ./datasets/dior step by step to generate the support images for both many-shot base classes (used during meta-training) and few-shot classes (used during few-shot fine-tuning).
+- For a fair comparison, two sets of supports are created separately for training and testing. The testing support set is created specifically from the test set of the dataset.
+- For pascalCOCO (pascal VOC dataset in coco format) the support set is created in a way to maximize the similarity to [XQSA](https://github.com/pierlj/aaf_framework/tree/master).
 
 ## Converting ImageNet pre-trained [PVT](https://github.com/whai362/PVT/tree/v2/classification#model-zoo) models into C4-based detection format
 The script is 

@@ -16,10 +16,11 @@ MODEL:
     PRE_NMS_TOPK_TEST: 12000
     POST_NMS_TOPK_TEST: 100
 OUTPUT_DIR: './output/fsod/two_branch_training_coco_pvt_v2_b2_li'
+DATA_DIR: '/home/bibahaduri/coco_dataset'
 DATASETS:
   TRAIN: ("coco_2014_train_nonvoc",)
-  TEST: ("coco_2014_val",)
-  TEST_SHOTS: (1,2,3,5,10,30)
+  TEST: ("coco_2014_val2",)
+  TEST_SHOTS: (10,) 
 INPUT:
   FS:
     SUPPORT_WAY: 2
@@ -32,10 +33,10 @@ SOLVER:
   IMS_PER_BATCH: 8
   BASE_LR: 0.00002
   STEPS: (15000, 20000)
-  MAX_ITER: 20000
+  MAX_ITER: 20001
   WARMUP_ITERS: 500
   WARMUP_FACTOR: 0.1
-  CHECKPOINT_PERIOD: 20000
+  CHECKPOINT_PERIOD: 5000
   HEAD_LR_FACTOR: 2.0
 TEST:
   EVAL_PERIOD: 20000

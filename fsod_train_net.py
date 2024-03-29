@@ -26,7 +26,7 @@ from FCT.config import get_cfg
 from FCT.data import DatasetMapperWithSupportCOCO, DatasetMapperWithSupportVOC
 from FCT.data.build import build_detection_train_loader, build_detection_test_loader
 from FCT.solver import build_optimizer
-from FCT.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator
+from FCT.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator,DIOREvaluator, DOTAEvaluator, PASCALEvaluator
 
 import bisect
 import copy
@@ -51,10 +51,10 @@ class Trainer(DefaultTrainer):
         It calls :func:`detectron2.data.build_detection_train_loader` with a customized
         DatasetMapper, which adds categorical labels as a semantic mask.
         """
-        if 'coco' in cfg.DATASETS.TRAIN[0]:
-            mapper = DatasetMapperWithSupportCOCO(cfg)
-        else:
+        if 'pascalvoc' in cfg.DATASETS.TRAIN[0]:
             mapper = DatasetMapperWithSupportVOC(cfg)
+        else:
+            mapper = DatasetMapperWithSupportCOCO(cfg)
         return build_detection_train_loader(cfg, mapper)
 
     @classmethod
@@ -81,10 +81,17 @@ class Trainer(DefaultTrainer):
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
         if output_folder is None:
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
-        if 'coco' in dataset_name:
-            return COCOEvaluator(dataset_name, cfg, True, output_folder)
-        else:
+        if 'pascalvoc' in dataset_name:
             return PascalVOCDetectionEvaluator(dataset_name)
+        elif 'coco' in dataset_name:
+            return COCOEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'dota' in dataset_name:
+            return DOTAEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'dior' in dataset_name:
+            return DIOREvaluator(dataset_name, cfg, True, output_folder)
+        elif 'pascal' in dataset_name:
+            return PASCALEvaluator(dataset_name, cfg, True, output_folder)
+        
 
     @classmethod
     def test(cls, cfg, model, evaluators=None):
@@ -128,15 +135,15 @@ class Trainer(DefaultTrainer):
             test_seeds = cfg.DATASETS.SEEDS
             test_shots = cfg.DATASETS.TEST_SHOTS
             cur_test_shots_set = set(test_shots)
-            if 'coco' in cfg.DATASETS.TRAIN[0]:
-                evaluation_dataset = 'coco'
-                coco_test_shots_set = set([1,2,3,5,10,30])
-                test_shots_join = cur_test_shots_set.intersection(coco_test_shots_set)
-                test_keepclasses = cfg.DATASETS.TEST_KEEPCLASSES
-            else:
+            if 'pascalvoc' in cfg.DATASETS.TRAIN[0]:
                 evaluation_dataset = 'voc'
                 voc_test_shots_set = set([1,2,3,5,10])
                 test_shots_join = cur_test_shots_set.intersection(voc_test_shots_set)
+                test_keepclasses = cfg.DATASETS.TEST_KEEPCLASSES
+            else:
+                evaluation_dataset = 'coco'
+                coco_test_shots_set = set([10,])##1,2,3,5,, 30
+                test_shots_join = cur_test_shots_set.intersection(coco_test_shots_set)
                 test_keepclasses = cfg.DATASETS.TEST_KEEPCLASSES
 
             if cfg.INPUT.FS.FEW_SHOT:
@@ -172,6 +179,7 @@ def setup(args):
     Create configs and perform basic setups.
     """
     cfg = get_cfg()
+    cfg.set_new_allowed(True)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()

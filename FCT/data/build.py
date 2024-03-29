@@ -199,10 +199,10 @@ def build_detection_test_loader(cfg, dataset_name, mapper=None):
     )
     dataset = DatasetFromList(dataset_dicts)
     if mapper is None:
-        if 'coco' in cfg.DATASETS.TRAIN[0]:
-            mapper = DatasetMapperWithSupportCOCO(cfg, False)
-        elif 'voc' in cfg.DATASETS.TRAIN[0]:
+        if 'pascalvoc' in cfg.DATASETS.TRAIN[0]:
             mapper = DatasetMapperWithSupportVOC(cfg, False)
+        else:
+            mapper = DatasetMapperWithSupportCOCO(cfg, False)
     dataset = MapDataset(dataset, mapper)
 
     sampler = InferenceSampler(len(dataset))

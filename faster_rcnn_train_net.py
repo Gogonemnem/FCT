@@ -16,7 +16,7 @@ from detectron2.engine import DefaultTrainer, default_argument_parser, default_s
 
 from FCT.config import get_cfg
 from FCT.data.build import build_detection_train_loader, build_detection_test_loader
-from FCT.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator
+from FCT.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator, DIOREvaluator, DOTAEvaluator
 from FCT.solver import build_optimizer
 import FCT.modeling.fsod.pvt_roi_heads
 
@@ -38,10 +38,15 @@ class Trainer(DefaultTrainer):
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
         if output_folder is None:
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
-        if 'coco' in dataset_name:
-            return COCOEvaluator(dataset_name, cfg, True, output_folder)
-        else:
+        if 'pascalvoc' in dataset_name:
             return PascalVOCDetectionEvaluator(dataset_name)
+        elif 'coco' in dataset_name:
+            return COCOEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'dota' in dataset_name:
+            return DOTAEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'dior' in dataset_name:
+            return DIOREvaluator(dataset_name, cfg, True, output_folder)
+
 
     @classmethod
     def build_optimizer(cls, cfg, model):
@@ -59,6 +64,7 @@ def setup(args):
     Create configs and perform basic setups.
     """
     cfg = get_cfg()
+    cfg.set_new_allowed(True)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()

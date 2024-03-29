@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from fvcore.common.file_io import PathManager
 from PIL import Image
+import os
 
 from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
@@ -76,6 +77,7 @@ class DatasetMapperWithSupportCOCO:
                 else cfg.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TEST
             )
         self.is_train = is_train
+        self.data_dir = cfg.DATA_DIR
 
         if self.is_train:
             # support_df
@@ -83,23 +85,25 @@ class DatasetMapperWithSupportCOCO:
             if self.few_shot:
                 if 'full' in cfg.DATASETS.TRAIN[0]:
                     if self.seeds == 0:
-                        self.support_df = pd.read_pickle("./datasets/coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT))
-                        print("training support_df=", "./datasets/coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
                     else:
-                        self.support_df = pd.read_pickle("./datasets/coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT))
-                        print("training support_df=", "./datasets/coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
                 else:
                     if self.seeds == 0:
-                        self.support_df = pd.read_pickle("./datasets/coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT))
-                        print("training support_df=", "./datasets/coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
                     else:
-                        self.support_df = pd.read_pickle("./datasets/coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT))
-                        print("training support_df=", "./datasets/coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
             else:
-                self.support_df = pd.read_pickle("./datasets/coco/train_support_df.pkl")
-                print("training support_df=./datasets/coco/train_support_df.pkl")
-
-            metadata = MetadataCatalog.get('coco_2014_train')
+                self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/train_support_df.pkl"))
+                print("training support_df= ", os.path.join(self.data_dir, "coco/train_support_df.pkl"))
+            if 'coco' in cfg.DATASETS.TRAIN[0]:
+                metadata = MetadataCatalog.get('coco_2014_train')
+            else:
+                metadata = MetadataCatalog.get(cfg.DATASETS.TRAIN[0])##'coco_2014_train')
             # unmap the category mapping ids for COCO
             reverse_id_mapper = lambda dataset_id: metadata.thing_dataset_id_to_contiguous_id[dataset_id]  # noqa
             self.support_df['category_id'] = self.support_df['category_id'].map(reverse_id_mapper)
@@ -155,7 +159,7 @@ class DatasetMapperWithSupportCOCO:
         # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
         # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
         # Therefore it's important to use torch.Tensor.
-        dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1)))
+        dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1))).contiguous()
 
         # USER: Remove if you don't use pre-computed proposals.
         # Most users would not need this feature.
@@ -248,7 +252,7 @@ class DatasetMapperWithSupportCOCO:
             support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
             assert support_db['id'].values[0] == support_id
             
-            support_data = utils.read_image('./datasets/coco/' + support_db["file_path"].tolist()[0], format=self.img_format)
+            support_data = utils.read_image(support_db["file_path"].tolist()[0], format=self.img_format) ##'./datasets/coco/' +
             support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
             support_box = support_db['support_box'].tolist()[0]
             #print(support_data)
@@ -281,7 +285,7 @@ class DatasetMapperWithSupportCOCO:
                     support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
                     assert support_db['id'].values[0] == support_id
 
-                    support_data = utils.read_image('./datasets/coco/' + support_db["file_path"].tolist()[0], format=self.img_format)
+                    support_data = utils.read_image(support_db["file_path"].tolist()[0], format=self.img_format)    ##'./datasets/coco/' + 
                     support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
                     support_box = support_db['support_box'].tolist()[0]
                     support_data_all[mixup_i] = support_data

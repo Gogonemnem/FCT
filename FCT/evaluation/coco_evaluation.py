@@ -261,6 +261,8 @@ class COCOEvaluator(DatasetEvaluator):
                 precision = precisions[:, :, idx, A, -1]
             elif T is None and A is None:
                 precision = precisions[:, :, idx, 0, -1]
+            elif A is not None and T is not None:
+                precision = precisions[T, :, idx, A, -1]
             else:
                 assert False
 
@@ -343,9 +345,9 @@ class COCOEvaluator(DatasetEvaluator):
         voc_ap_50, non_voc_ap_50 = self._calculate_ap(class_names, precisions, T=0) # T=0, iou_thresh = 0.5
         voc_ap_75, non_voc_ap_75 = self._calculate_ap(class_names, precisions, T=5) # T=5, iou_thresh = 0.75
 
-        voc_ap_small, non_voc_ap_small = self._calculate_ap(class_names, precisions, A=1) # A=1, small
-        voc_ap_medium, non_voc_ap_medium = self._calculate_ap(class_names, precisions, A=2) # A=2, medium
-        voc_ap_large, non_voc_ap_large = self._calculate_ap(class_names, precisions, A=3) # A=3, large
+        voc_ap_small, non_voc_ap_small = self._calculate_ap(class_names, precisions, A=1, T=0) # A=1, small
+        voc_ap_medium, non_voc_ap_medium = self._calculate_ap(class_names, precisions, A=2, T=0) # A=2, medium
+        voc_ap_large, non_voc_ap_large = self._calculate_ap(class_names, precisions, A=3, T=0) # A=3, large
 
         # print voc ap
         self._logger.info("Evaluation results for VOC 20 categories =======> AP  : " + str('%.2f' % voc_ap))

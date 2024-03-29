@@ -22,8 +22,8 @@ import json
 import sys
 
 # ==== dataset statistics ====
-# include all instances: 367701  (created in this file)
-# area no smaller than 32*32: 148491
+# include all instances: 367701
+# area no smaller than 32*32: 148491  (created in this file)
 
 def filter_coco(coco, cls_split):
     new_anns = []
@@ -44,8 +44,15 @@ def filter_coco(coco, cls_split):
             category_id = ann['category_id']
             id = ann['id']
             bbox_area = bbox[2] * bbox[3]
+            
+            # filter images with small boxes
+            if category_id in cls_split:
+                if bbox_area < 32 * 32:
+                    skip_flag = True
                 
-        if True:
+        if skip_flag:
+            continue
+        else:
             for ann in anns:
                 category_id = ann['category_id']
                 if category_id in cls_split:
@@ -63,7 +70,7 @@ def filter_coco(coco, cls_split):
 
 root_path = sys.argv[1]
 print(root_path)
-dataDir = './annotations'
+dataDir = '/home/bibahaduri/DIOR/coco/annotations'##'./annotations'
 support_dict = {}
 
 support_dict['support_box'] = []
@@ -72,10 +79,10 @@ support_dict['image_id'] = []
 support_dict['id'] = []
 support_dict['file_path'] = []
 
-voc_inds = (0, 1, 2, 3, 4, 5, 6, 8, 14, 15, 16, 17, 18, 19, 39, 56, 57, 58, 60, 62)
+voc_inds = (0, 2, 16, 17, 19)##(3, 5, 15)##(0, 1, 2, 3, 4, 5, 6, 8, 14, 15, 16, 17, 18, 19, 39, 56, 57, 58, 60, 62)
 
 
-for dataType in ['trainvalno5k.json']:
+for dataType in ['instances_train2017.json']:
     annFile = join(dataDir, dataType)
 
     with open(annFile,'r') as load_f:
@@ -130,7 +137,7 @@ for dataType in ['trainvalno5k.json']:
     new_annotations_path = os.path.join(root_path, 'new_annotations')
     if not os.path.exists(new_annotations_path):
         os.makedirs(new_annotations_path)
-    split2_file = os.path.join(root_path, 'new_annotations/final_split_non_voc_instances_train2014_with_small.json')
+    split2_file = os.path.join(root_path, 'new_annotations/final_split_non_voc_instances_train2014.json')
 
     with open(split2_file, 'w') as f:
         json.dump(dataset_split2, f) 

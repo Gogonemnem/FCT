@@ -183,10 +183,11 @@ def crop_support(img, bbox):
     return support_data, support_box
         
 
-def main():
-    dataDir = '.'
+def main(shot):
+    dataDir = '/home/bibahaduri/pascalvoc/coco'##'.'
+
     root_path = sys.argv[1]
-    support_path = os.path.join(root_path, 'support')
+    support_path = os.path.join(root_path, 'full_class_{}_shot_support'.format(shot))
     if not isdir(support_path): 
         mkdir(support_path)
     #else:
@@ -200,11 +201,12 @@ def main():
     support_dict['id'] = []
     support_dict['file_path'] = []
 
-    for dataType in ['trainval2014']:
+    for dataType in ['train']:##['trainval2014']:
         set_crop_base_path = join(support_path, dataType)
         set_img_base_path = join(dataDir, dataType)
 
-        annFile = os.path.join(root_path, 'new_annotations/final_split_non_voc_instances_train2014.json')
+        annFile = os.path.join(root_path, 'new_annotations/full_class_{}_shot_instances_train2014.json'.format(shot))
+        
         with open(annFile,'r') as load_f:
             dataset = json.load(load_f)
             print(dataset.keys())
@@ -224,11 +226,12 @@ def main():
             if len(anns) == 0:
                 continue
 
+            #print(img['file_name'])
             frame_crop_base_path = join(set_crop_base_path, img['file_name'].split('/')[-1].split('.')[0])
             if not isdir(frame_crop_base_path): makedirs(frame_crop_base_path)
             im = cv2.imread('{}/{}'.format(set_img_base_path, img['file_name']))
-            #print('{}/{}'.format(set_img_base_path, img['file_name']))
             for item_id, ann in enumerate(anns):
+                #print(ann)
                 rect = ann['bbox']
                 bbox = [rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3]]
                 support_img, support_box = crop_support(im, bbox)
@@ -248,17 +251,17 @@ def main():
                 support_dict['file_path'].append(file_path)
 
         support_df = pd.DataFrame.from_dict(support_dict)
-        print("Total number of boxes is ", len(support_dict))
         
     return support_df
 
 
 if __name__ == '__main__':
-    since = time.time()
-    support_df = main()
-    support_df.to_pickle("./train_support_df.pkl")
+    for shot in [1,3,5,10]:##[1,2,3,5,10,30]:
+        since = time.time()
+        support_df = main(shot)
+        support_df.to_pickle("./full_class_{}_shot_support_df.pkl".format(shot))
 
-    time_elapsed = time.time() - since
-    print('Total complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
+        time_elapsed = time.time() - since
+        print('Total complete in {:.0f}m {:.0f}s'.format(
+            time_elapsed // 60, time_elapsed % 60))
 

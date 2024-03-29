@@ -22,12 +22,12 @@ import json
 import sys
 
 
-VOC_classes = ['airplane', 'bicycle', 'boat', 'bottle', 'car', 'cat', 'chair',
-        'dining table', 'dog', 'horse', 'person', 'potted plant', 'sheep',
-        'train', 'tv', 'bird', 'bus', 'cow', 'motorcycle', 'couch']
-split_dir = 'xxx/cocosplit' # please update the path in your system
+VOC_classes = ["storage-tank", "tennis-court", "soccer-ball-field"]##['airplane', 'bicycle', 'boat', 'bottle', 'car', 'cat', 'chair',
+                                                                    ## 'dining table', 'dog', 'horse', 'person', 'potted plant', 'sheep',
+                                                                    ## 'train', 'tv', 'bird', 'bus', 'cow', 'motorcycle', 'couch']
+split_dir = '/home/bibahaduri/dota_dataset/coco/datasets/cocosplit/seed1729'##'xxx/cocosplit' # please update the path in your system
 
-for shot in [1, 2, 3, 5, 10, 30]:
+for shot in [10]:##[1, 2, 3, 5, 10, 30]:
     fileids = {}
     for idx, cls in enumerate(VOC_classes):
         json_file = os.path.join(split_dir, 'full_box_{}shot_{}_trainval.json'.format(shot, cls))

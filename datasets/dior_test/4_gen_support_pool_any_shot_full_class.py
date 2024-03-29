@@ -184,7 +184,7 @@ def crop_support(img, bbox):
         
 
 def main(shot):
-    dataDir = '.'
+    dataDir = '/home/bibahaduri/DIOR/coco'##'.'
 
     root_path = sys.argv[1]
     support_path = os.path.join(root_path, 'full_class_{}_shot_support'.format(shot))
@@ -201,11 +201,11 @@ def main(shot):
     support_dict['id'] = []
     support_dict['file_path'] = []
 
-    for dataType in ['trainval2014']:
+    for dataType in ['test2017']:##['trainval2014']:
         set_crop_base_path = join(support_path, dataType)
         set_img_base_path = join(dataDir, dataType)
 
-        annFile = os.path.join(root_path, 'new_annotations/full_class_{}_shot_instances_train2014.json'.format(shot))
+        annFile = os.path.join(root_path, 'new_annotations/full_class_{}_shot_instances_test2014.json'.format(shot))
         
         with open(annFile,'r') as load_f:
             dataset = json.load(load_f)
@@ -256,10 +256,10 @@ def main(shot):
 
 
 if __name__ == '__main__':
-    for shot in [1,2,3,5,10,30]:
+    for shot in [10]:##[1,2,3,5,10,30]:
         since = time.time()
         support_df = main(shot)
-        support_df.to_pickle("./full_class_{}_shot_support_df.pkl".format(shot))
+        support_df.to_pickle("./full_class_{}_test_shot_support_df.pkl".format(shot))
 
         time_elapsed = time.time() - since
         print('Total complete in {:.0f}m {:.0f}s'.format(

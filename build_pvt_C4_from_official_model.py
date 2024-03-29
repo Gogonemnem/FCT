@@ -7,7 +7,8 @@ Created on Wednesday, September 28, 2022
 
 import torch
 
-model = torch.load("./pvt_v2_b2_li.pth")
+device = torch.device('cuda')
+model = torch.load("/home/bibahaduri/weights/pvt_v2_b2_li.pth", map_location=device)
 # model = torch.load("./pvt_v2_b1.pth")
 # model = torch.load("./pvt_v2_b0.pth")
 # model = torch.load("./pvt_v2_b2.pth")
@@ -23,7 +24,7 @@ for layer_ in list(model.keys()):
         model.pop(layer_)
         print("replacing {} with {}".format(layer_, 'roi_heads.'+layer_))
 
-torch.save(model, "pvt_v2_b2_li_C4.pth")
+torch.save(model, "/home/bibahaduri/weights/pvt_v2_b2_li.pth")
 # torch.save(model, "pvt_v2_b1_C4.pth")
 # torch.save(model, "pvt_v2_b0_C4.pth")
 # torch.save(model, "pvt_v2_b2_C4.pth")

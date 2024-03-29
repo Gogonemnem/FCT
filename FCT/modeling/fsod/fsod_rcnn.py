@@ -66,6 +66,8 @@ class FsodRCNN(nn.Module):
         self.support_shot = cfg.INPUT.FS.SUPPORT_SHOT
         self.logger = logging.getLogger(__name__)
         self.support_dir = cfg.OUTPUT_DIR
+        self.data_dir = cfg.DATA_DIR
+        self.dataset = cfg.DATASETS.TRAIN[0]
 
         self.evaluation_dataset = 'voc'
         self.evaluation_shot = 10
@@ -322,9 +324,9 @@ class FsodRCNN(nn.Module):
     def init_model_voc(self):
         if 1:
             if self.test_seeds == 0:
-                support_path = './datasets/pascal_voc/voc_2007_trainval_{}_{}shot.pkl'.format(self.keepclasses, self.evaluation_shot)
+                support_path = os.path.join(self.data_dir, 'pascal_voc/voc_2007_trainval_{}_{}shot.pkl'.format(self.keepclasses, self.evaluation_shot))
             elif self.test_seeds >= 0:
-                support_path = './datasets/pascal_voc/seed{}/voc_2007_trainval_{}_{}shot.pkl'.format(self.test_seeds, self.keepclasses, self.evaluation_shot)
+                support_path = os.path.join(self.data_dir, 'pascal_voc/seed{}/voc_2007_trainval_{}_{}shot.pkl'.format(self.test_seeds, self.keepclasses, self.evaluation_shot))
 
             support_df = pd.read_pickle(support_path)
 
@@ -337,7 +339,7 @@ class FsodRCNN(nn.Module):
                 support_box_all = []
 
                 for index, support_img_df in support_cls_df.iterrows():
-                    img_path = os.path.join('./datasets/pascal_voc', support_img_df['file_path'])
+                    img_path = os.path.join(self.data_dir, 'pascal_voc', support_img_df['file_path'])
                     support_data = utils.read_image(img_path, format='BGR')
                     support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
                     support_data_all.append(support_data)
@@ -361,18 +363,20 @@ class FsodRCNN(nn.Module):
         if 1:
             if self.keepclasses == 'all':
                 if self.test_seeds == 0:
-                    support_path = './datasets/coco/full_class_{}_shot_support_df.pkl'.format(self.evaluation_shot)
+                    support_path = os.path.join(self.data_dir, 'coco/full_class_{}_test_shot_support_df.pkl'.format(self.evaluation_shot))##(self.data_dir, 'coco/full_class_{}_shot_support_df.pkl'.format(self.evaluation_shot))
                 elif self.test_seeds > 0:
-                    support_path = './datasets/coco/seed{}/full_class_{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot)
+                    support_path = os.path.join(self.data_dir, 'coco/seed{}/full_class_{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
             else:
                 if self.test_seeds == 0:
-                    support_path = './datasets/coco/{}_shot_support_df.pkl'.format(self.evaluation_shot)
+                    support_path = os.path.join(self.data_dir, 'coco/{}_shot_support_df.pkl'.format(self.evaluation_shot))
                 elif self.test_seeds > 0:
-                    support_path = './datasets/coco/seed{}/{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot)
+                    support_path = os.path.join(self.data_dir, 'coco/seed{}/{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
 
             support_df = pd.read_pickle(support_path)
-
-            metadata = MetadataCatalog.get('coco_2014_train')
+            if 'coco' in self.dataset:
+                metadata = MetadataCatalog.get('coco_2014_train')
+            else:
+                metadata = MetadataCatalog.get(self.dataset)##MetadataCatalog.get('coco_2014_train')  ##HACK
             # unmap the category mapping ids for COCO
             reverse_id_mapper = lambda dataset_id: metadata.thing_dataset_id_to_contiguous_id[dataset_id]  # noqa
             support_df['category_id'] = support_df['category_id'].map(reverse_id_mapper)
@@ -386,7 +390,7 @@ class FsodRCNN(nn.Module):
                 support_box_all = []
 
                 for index, support_img_df in support_cls_df.iterrows():
-                    img_path = os.path.join('./datasets/coco', support_img_df['file_path'])
+                    img_path = os.path.join(self.data_dir, 'coco', support_img_df['file_path'])
                     support_data = utils.read_image(img_path, format='BGR')
                     support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
                     support_data_all.append(support_data)
