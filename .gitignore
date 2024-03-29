@@ -23,3 +23,7 @@ Thumbs.db
 
 # Ignore PDF files
 *.pdf
+
+# Ignore PyTorch specific files
+*.pth
+*.pt
