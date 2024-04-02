@@ -10,4 +10,6 @@ scp -r weights "$remote_ip:$fct_directory"
 # Copy the datasets/data folder to the remote server
 scp -r datasets/data "$remote_ip:$fct_directory"
 
+# rsync -av --ignore-existing
+
 echo "Files copied successfully!"
