@@ -106,7 +106,7 @@ _PREDEFINED_SPLITS_DIOR = {}
 _PREDEFINED_SPLITS_DIOR["dior"] = {
     "dior_2014_train_nonvoc": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014.json"), # by default no_smaller_32
     "dior_2014_train_nonvoc_with_small": ("coco/train2017", "coco/new_annotations/final_split_non_voc_instances_train2014_with_small.json"), # includeing all boxes
-    "dior_2014_val2": ("coco/test2017", "./datasets/data/DIOR/coco/annotations/instances_test2017.json"),
+    "dior_2014_val2": ("coco/test2017", "coco/annotations/instances_test2017.json"),
     "dior_2014_train_voc_10_shot": ("coco/train2017", "coco/new_annotations/final_split_voc_10_shot_instances_train2014.json"),
     # "coco_2014_train_voc_1_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_1_shot_instances_train2014.json"),
     # "coco_2014_train_voc_2_shot": ("coco/trainval2014", "coco/new_annotations/final_split_voc_2_shot_instances_train2014.json"),
