@@ -26,16 +26,10 @@ from detectron2.data.datasets.coco import convert_to_coco_json
 from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
 from detectron2.structures import Boxes, BoxMode, pairwise_iou
 from detectron2.utils.logger import create_small_table
-
 from detectron2.evaluation.evaluator import DatasetEvaluator
 
-CLASS_NAMES = [
-    "airplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat",
-    "chair", "cow", "dining table", "dog", "horse", "motorcycle", "person",
-    "potted plant", "sheep", "couch", "train", "tv",
-]
 
-class COCOEvaluator(DatasetEvaluator):
+class BaseCOCOEvaluator(DatasetEvaluator):
     """
     Evaluate AR for object proposals, AP for instance detection/segmentation, AP
     for keypoint detection outputs using COCO's metrics.
@@ -45,7 +39,6 @@ class COCOEvaluator(DatasetEvaluator):
     In addition to COCO, this evaluator is able to support any bounding box detection,
     instance segmentation, or keypoint detection dataset.
     """
-
     def __init__(self, dataset_name, cfg, distributed, output_dir=None):
         """
         Args:
@@ -123,12 +116,12 @@ class COCOEvaluator(DatasetEvaluator):
         for input, output in zip(inputs, outputs):
             prediction = {"image_id": input["image_id"]}
 
-            # TODO this is ugly
             if "instances" in output:
                 instances = output["instances"].to(self._cpu_device)
                 prediction["instances"] = instances_to_coco_json(instances, input["image_id"])
             if "proposals" in output:
                 prediction["proposals"] = output["proposals"].to(self._cpu_device)
+
             self._predictions.append(prediction)
 
     def evaluate(self):
@@ -166,33 +159,53 @@ class COCOEvaluator(DatasetEvaluator):
         Fill self._results with the metrics of the tasks.
         """
         self._logger.info("Preparing results for COCO format ...")
-        coco_results = list(itertools.chain(*[x["instances"] for x in predictions]))
-
-        # unmap the category ids for COCO
-        if hasattr(self._metadata, "thing_dataset_id_to_contiguous_id"):
-            reverse_id_mapping = {
-                v: k for k, v in self._metadata.thing_dataset_id_to_contiguous_id.items()
-            }
-            for result in coco_results:
-                category_id = result["category_id"]
-                assert (
-                    category_id in reverse_id_mapping
-                ), "A prediction has category_id={}, which is not available in the dataset.".format(
-                    category_id
-                )
-                result["category_id"] = reverse_id_mapping[category_id]
+        coco_results = self._format_predictions_for_coco(predictions)
 
         if self._output_dir:
-            file_path = os.path.join(self._output_dir, "coco_instances_results.json")
-            self._logger.info("Saving results to {}".format(file_path))
-            with PathManager.open(file_path, "w") as f:
-                f.write(json.dumps(coco_results))
-                f.flush()
+            self._logger.info(f"Saving results to {self._output_dir}")
+            self._save_coco_results(coco_results, "coco_instances_results.json")
 
         if not self._do_evaluation:
             self._logger.info("Annotations are not available for evaluation.")
             return
 
+        self._evaluate_and_store_results(tasks, coco_results)
+
+    def _format_predictions_for_coco(self, predictions):
+        """
+        Convert predictions to COCO format and handle category ID unmapping
+        """
+        coco_results = list(itertools.chain(*[x["instances"] for x in predictions]))
+
+        # Unmap the category ids for COCO
+        if hasattr(self._metadata, "thing_dataset_id_to_contiguous_id"):
+            reverse_id_mapping = {
+                v: k for k, v in self._metadata.thing_dataset_id_to_contiguous_id.items()
+            }
+            for result in coco_results:
+                category_id = reverse_id_mapping.get(result["category_id"])
+                if category_id is None:
+                    raise ValueError(
+                        f"A prediction has category_id={result['category_id']}, "
+                        "which is not available in the dataset."
+                    )
+                result["category_id"] = category_id
+        return coco_results
+
+    def _save_coco_results(self, coco_results, file_name):
+        """
+        Save results in coco format to the given file name
+        """
+        file_path = os.path.join(self._output_dir, file_name)
+        self._logger.info(f"Saving results to {file_path}")
+        with PathManager.open(file_path, "w") as f:
+            f.write(json.dumps(coco_results))
+            f.flush()
+
+    def _evaluate_and_store_results(self, tasks, coco_results):
+        """
+        Evaluate coco results and store the results for each task
+        """
         self._logger.info("Evaluating predictions ...")
         for task in sorted(tasks):
             coco_eval = (
@@ -214,76 +227,169 @@ class COCOEvaluator(DatasetEvaluator):
         Fill self._results with the metrics for "box_proposals" task.
         """
         if self._output_dir:
-            # Saving generated box proposals to file.
-            # Predicted box_proposals are in XYXY_ABS mode.
-            bbox_mode = BoxMode.XYXY_ABS.value
-            ids, boxes, objectness_logits = [], [], []
-            for prediction in predictions:
-                ids.append(prediction["image_id"])
-                boxes.append(prediction["proposals"].proposal_boxes.tensor.numpy())
-                objectness_logits.append(prediction["proposals"].objectness_logits.numpy())
-
-            proposal_data = {
-                "boxes": boxes,
-                "objectness_logits": objectness_logits,
-                "ids": ids,
-                "bbox_mode": bbox_mode,
-            }
-            with PathManager.open(os.path.join(self._output_dir, "box_proposals.pkl"), "wb") as f:
-                pickle.dump(proposal_data, f)
+            self._logger.info("Saving generated box proposals to file.")
+            self._save_box_proposals(predictions)
 
         if not self._do_evaluation:
             self._logger.info("Annotations are not available for evaluation.")
             return
 
+        self._evaluate_and_log_box_proposals(predictions)
+
+    def _save_box_proposals(self, predictions):
+        """
+        Save generated box proposals to the file in the output directory.
+        """
+        ids, boxes, objectness_logits = self._extract_box_proposal_data(predictions)
+        proposal_data = {
+            "boxes": boxes,
+            "objectness_logits": objectness_logits,
+            "ids": ids,
+            "bbox_mode": BoxMode.XYXY_ABS.value,
+        }
+        with PathManager.open(os.path.join(self._output_dir, "box_proposals.pkl"), "wb") as f:
+            pickle.dump(proposal_data, f)
+
+    def _extract_box_proposal_data(self, predictions):
+        """
+        Extract and return box proposal data from predictions
+        """
+        ids, boxes, objectness_logits = [], [], []
+        for prediction in predictions:
+            ids.append(prediction["image_id"])
+            boxes.append(prediction["proposals"].proposal_boxes.tensor.numpy())
+            objectness_logits.append(prediction["proposals"].objectness_logits.numpy())
+        return ids, boxes, objectness_logits
+
+    def _evaluate_and_log_box_proposals(self, predictions):
+        """
+        Evaluate box proposals and log the metrics
+        """
         self._logger.info("Evaluating bbox proposals ...")
         res = {}
         areas = {"all": "", "small": "s", "medium": "m", "large": "l"}
         for limit in [5, 10, 25, 50, 75, 100, 200, 500, 1000, 1500, 2000, 5000, 10000, 20000]:
             for area, suffix in areas.items():
-                stats = _evaluate_box_proposals(predictions, self._coco_api, self._metadata.get("thing_classes"), self._metadata.get("thing_dataset_id_to_contiguous_id"), area=area, limit=limit)
-                key = "AR{}@{:d}".format(suffix, limit)
+                stats = self._evaluate_box_proposals(predictions, self._coco_api, self._metadata.get("thing_classes"), self._metadata.get("thing_dataset_id_to_contiguous_id"), area=area, limit=limit)
+                key = f"AR{suffix}@{limit:d}"
                 res[key] = float(stats["ar"].item() * 100)
         self._logger.info("Proposal metrics: \n" + create_small_table(res))
         self._results["box_proposals"] = res
 
-    def _calculate_ap(self, class_names, precisions, T=None, A=None):
-        ################## ap #####################
-        voc_ls = []
-        non_voc_ls = []
+    # inspired from Detectron:
+    # https://github.com/facebookresearch/Detectron/blob/a6a835f5b8208c45d0dce217ce9bbda915f44df7/detectron/datasets/json_dataset_evaluator.py#L255 # noqa
+    # evaluate proposals for novel classes
+    def _evaluate_box_proposals(self, dataset_predictions, coco_api, class_names, mapper, thresholds=None, area="all", limit=None):
+        """
+        Evaluate detection proposal recall metrics. This function is a much
+        faster alternative to the official COCO API recall evaluation code. However,
+        it produces slightly different results.
+        """
+        # Record max overlap value for each gt box
+        # Return vector of overlap values
+        areas = {
+            "all": 0,
+            "small": 1,
+            "medium": 2,
+            "large": 3,
+            "96-128": 4,
+            "128-256": 5,
+            "256-512": 6,
+            "512-inf": 7,
+        }
+        area_ranges = [
+            [0 ** 2, 1e5 ** 2],  # all
+            [0 ** 2, 32 ** 2],  # small
+            [32 ** 2, 96 ** 2],  # medium
+            [96 ** 2, 1e5 ** 2],  # large
+            [96 ** 2, 128 ** 2],  # 96-128
+            [128 ** 2, 256 ** 2],  # 128-256
+            [256 ** 2, 512 ** 2],  # 256-512
+            [512 ** 2, 1e5 ** 2],
+        ]  # 512-inf
+        assert area in areas, "Unknown area range: {}".format(area)
+        area_range = area_ranges[areas[area]]
+        gt_overlaps = []
+        num_pos = 0
 
-        for idx, name in enumerate(class_names):
-            # area range index 0: all area ranges
-            # max dets index -1: typically 100 per image
-            if T is not None and A is None:
-                precision = precisions[T, :, idx, 0, -1]
-            elif A is not None and T is None:
-                precision = precisions[:, :, idx, A, -1]
-            elif T is None and A is None:
-                precision = precisions[:, :, idx, 0, -1]
-            elif A is not None and T is not None:
-                precision = precisions[T, :, idx, A, -1]
-            else:
-                assert False
+        for prediction_dict in dataset_predictions:
+            predictions = prediction_dict["proposals"]
 
-            precision = precision[precision > -1]
-            ap = np.mean(precision) if precision.size else float("nan")
+            # sort predictions in descending order
+            # TODO maybe remove this and make it explicit in the documentation
+            inds = predictions.objectness_logits.sort(descending=True)[1]
+            predictions = predictions[inds]
 
-            # calculate voc ap and non-voc ap
-            if name in CLASS_NAMES:
-                voc_ls.append(ap * 100)
-            else:
-                non_voc_ls.append(ap * 100)
-        if len(voc_ls) > 0:
-            voc_ap = sum(voc_ls) * 1.0 / len(voc_ls)
-        else:
-            voc_ap = 0.0
-        if len(non_voc_ls) > 0:
-            non_voc_ap = sum(non_voc_ls) * 1.0 / len(non_voc_ls)
-        else:
-            non_voc_ap = 0.0
+            ann_ids = coco_api.getAnnIds(imgIds=prediction_dict["image_id"])
+            anno = coco_api.loadAnns(ann_ids)
 
-        return voc_ap, non_voc_ap
+            gt_boxes = [
+                BoxMode.convert(obj["bbox"], BoxMode.XYWH_ABS, BoxMode.XYXY_ABS)
+                for obj in anno
+                if obj["iscrowd"] == 0 and class_names[mapper[obj["category_id"]]] in self.CLASS_NAMES
+            ]
+            gt_boxes = torch.as_tensor(gt_boxes).reshape(-1, 4)  # guard against no boxes
+            gt_boxes = Boxes(gt_boxes)
+            gt_areas = torch.as_tensor([obj["area"] for obj in anno if obj["iscrowd"] == 0 and class_names[mapper[obj["category_id"]]] in self.CLASS_NAMES])
+
+            if len(gt_boxes) == 0 or len(predictions) == 0:
+                continue
+
+            valid_gt_inds = (gt_areas >= area_range[0]) & (gt_areas <= area_range[1])
+            gt_boxes = gt_boxes[valid_gt_inds]
+
+            num_pos += len(gt_boxes)
+
+            if len(gt_boxes) == 0:
+                continue
+
+            if limit is not None and len(predictions) > limit:
+                predictions = predictions[:limit]
+
+            overlaps = pairwise_iou(predictions.proposal_boxes, gt_boxes)
+
+            _gt_overlaps = torch.zeros(len(gt_boxes))
+            for j in range(min(len(predictions), len(gt_boxes))):
+                # find which proposal box maximally covers each gt box
+                # and get the iou amount of coverage for each gt box
+                max_overlaps, argmax_overlaps = overlaps.max(dim=0)
+
+                # find which gt box is 'best' covered (i.e. 'best' = most iou)
+                gt_ovr, gt_ind = max_overlaps.max(dim=0)
+                assert gt_ovr >= 0
+                # find the proposal box that covers the best covered gt box
+                box_ind = argmax_overlaps[gt_ind]
+                # record the iou coverage of this gt box
+                _gt_overlaps[j] = overlaps[box_ind, gt_ind]
+                assert _gt_overlaps[j] == gt_ovr
+                # mark the proposal box and the gt box as used
+                overlaps[box_ind, :] = -1
+                overlaps[:, gt_ind] = -1
+
+            # append recorded iou coverage level
+            gt_overlaps.append(_gt_overlaps)
+        gt_overlaps = (
+            torch.cat(gt_overlaps, dim=0) if len(gt_overlaps) else torch.zeros(0, dtype=torch.float32)
+        )
+        gt_overlaps, _ = torch.sort(gt_overlaps)
+
+        if thresholds is None:
+            step = 0.05
+            thresholds = torch.arange(0.5, 0.95 + 1e-5, step, dtype=torch.float32)
+        recalls = torch.zeros_like(thresholds)
+        # compute recall for each iou threshold
+        for i, t in enumerate(thresholds):
+            recalls[i] = (gt_overlaps >= t).float().sum() / float(num_pos)
+        # ar = 2 * np.trapz(recalls, thresholds)
+        ar = recalls.mean()
+        return {
+            "ar": ar,
+            "recalls": recalls,
+            "thresholds": thresholds,
+            "gt_overlaps": gt_overlaps,
+            "num_pos": num_pos,
+        }
+
 
     def _derive_coco_results(self, coco_eval, iou_type, class_names=None):
         """
@@ -303,92 +409,54 @@ class COCOEvaluator(DatasetEvaluator):
             "bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"],
             "segm": ["AP", "AP50", "AP75", "APs", "APm", "APl"],
             "keypoints": ["AP", "AP50", "AP75", "APm", "APl"],
-        }[iou_type]
+        }.get(iou_type, [])
 
-        if coco_eval is None:
+        if not coco_eval:
             self._logger.warn("No predictions from the model!")
             return {metric: float("nan") for metric in metrics}
 
-        # the standard metrics
-        results = {
+        results = self._compute_standard_metrics(coco_eval, metrics)
+        self._log_evaluation_results(iou_type, results)
+
+        if class_names and len(class_names) > 1:
+            results = self._compute_per_category_AP(coco_eval, class_names, results, iou_type)
+
+        return results
+
+    def _compute_standard_metrics(self, coco_eval, metrics):
+        return {
             metric: float(coco_eval.stats[idx] * 100 if coco_eval.stats[idx] >= 0 else "nan")
             for idx, metric in enumerate(metrics)
         }
+
+    def _log_evaluation_results(self, iou_type, results):
         self._logger.info(
             "Evaluation results for {}: \n".format(iou_type) + create_small_table(results)
         )
         if not np.isfinite(sum(results.values())):
             self._logger.info("Some metrics cannot be computed and is shown as NaN.")
 
-        if class_names is None or len(class_names) <= 1:
-            return results
-        # Compute per-category AP
-        # from https://github.com/facebookresearch/Detectron/blob/a6a835f5b8208c45d0dce217ce9bbda915f44df7/detectron/datasets/json_dataset_evaluator.py#L222-L252 # noqa
+    def _compute_per_category_AP(self, coco_eval, class_names, results, iou_type):
         precisions = coco_eval.eval["precision"]
-        # precision has dims (iou, recall, cls, area range, max dets)
         assert len(class_names) == precisions.shape[2]
+        results_per_category = self._calculate_per_class_AP(precisions, class_names)
 
-        results_per_category = []
-        voc_ls = []
-        non_voc_ls = []
+        for category, is_voc in [("VOC", True), ("Non VOC", False)]:
+            ap_scores = self._calculate_summary_metrics(class_names, precisions, category, is_voc)
+            num_classes = sum((name in self.CLASS_NAMES) == is_voc for name in class_names)
 
-        ################## ap #####################
-        for idx, name in enumerate(class_names):
-            # area range index 0: all area ranges
-            # max dets index -1: typically 100 per image
-            precision = precisions[:, :, idx, 0, -1]
-            precision = precision[precision > -1]
-            ap = np.mean(precision) if precision.size else float("nan")
-            results_per_category.append(("{}".format(name), float(ap * 100)))
-        # calculate voc and non voc metrics
-        voc_ap, non_voc_ap = self._calculate_ap(class_names, precisions)
-        voc_ap_50, non_voc_ap_50 = self._calculate_ap(class_names, precisions, T=0) # T=0, iou_thresh = 0.5
-        voc_ap_75, non_voc_ap_75 = self._calculate_ap(class_names, precisions, T=5) # T=5, iou_thresh = 0.75
+            for i, suffix in enumerate(["", "50", "75", "s", "m", "l"]):
+                metric_name = f"{category.lower()}AP{suffix}"
+                results[metric_name] = ap_scores[i]
 
-        voc_ap_small, non_voc_ap_small = self._calculate_ap(class_names, precisions, A=1, T=0) # A=1, small
-        voc_ap_medium, non_voc_ap_medium = self._calculate_ap(class_names, precisions, A=2, T=0) # A=2, medium
-        voc_ap_large, non_voc_ap_large = self._calculate_ap(class_names, precisions, A=3, T=0) # A=3, large
+                self._logger.info(f"Evaluation results for {category} {num_classes} categories ====> {metric_name}: " + str('%.2f' % ap_scores[i]))
 
-        # print voc ap
-        self._logger.info("Evaluation results for VOC 20 categories =======> AP  : " + str('%.2f' % voc_ap))
-        self._logger.info("Evaluation results for VOC 20 categories =======> AP50: " + str('%.2f' % voc_ap_50))
-        self._logger.info("Evaluation results for VOC 20 categories =======> AP75: " + str('%.2f' % voc_ap_75))
-        self._logger.info("Evaluation results for VOC 20 categories =======> APs : " + str('%.2f' % voc_ap_small))
-        self._logger.info("Evaluation results for VOC 20 categories =======> APm : " + str('%.2f' % voc_ap_medium))
-        self._logger.info("Evaluation results for VOC 20 categories =======> APl : " + str('%.2f' % voc_ap_large))
-        results["nAP"] = voc_ap
-        results["nAP50"] = voc_ap_50
-        results["nAP75"] = voc_ap_75
-        results["nAPs"] = voc_ap_small
-        results["nAPm"] = voc_ap_medium
-        results["nAPl"] = voc_ap_large
+        self._log_per_category_results(iou_type, results_per_category)
+        results.update({"AP-" + name: ap for name, ap in results_per_category})
 
-        # print voc ap
-        self._logger.info("Evaluation results for Non VOC 60 categories =======> AP  : " + str('%.2f' % non_voc_ap))
-        self._logger.info("Evaluation results for Non VOC 60 categories =======> AP50: " + str('%.2f' % non_voc_ap_50))
-        self._logger.info("Evaluation results for Non VOC 60 categories =======> AP75: " + str('%.2f' % non_voc_ap_75))
-        self._logger.info("Evaluation results for Non VOC 60 categories =======> APs : " + str('%.2f' % non_voc_ap_small))
-        self._logger.info("Evaluation results for Non VOC 60 categories =======> APm : " + str('%.2f' % non_voc_ap_medium))
-        self._logger.info("Evaluation results for Non VOC 60 categories =======> APl : " + str('%.2f' % non_voc_ap_large))
-        results["bAP"] = non_voc_ap
-        results["bAP50"] = non_voc_ap_50
-        results["bAP75"] = non_voc_ap_75
-        results["bAPs"] = non_voc_ap_small
-        results["bAPm"] = non_voc_ap_medium
-        results["bAPl"] = non_voc_ap_large
+        return results
 
-        '''
-        # log evaluation results in csv
-        # type, AP, AP50, AP75, APs, APm, APl
-        eval_log = iou_type + ',' + 'AP,AP50,AP75,APs,APm,APl' + '\n'
-        eval_log += 'all' + ',' + str('%.2f' % results['AP']) + ',' + str('%.2f' % results['AP50']) + ',' + str('%.2f' % results['AP75']) + ',' + str('%.2f' % results['APs']) + ',' + str('%.2f' % results['APm']) + ',' + str('%.2f' % results['APl']) + '\n'
-        eval_log += 'VOC' + ',' + str('%.2f' % voc_ap) + ',' + str('%.2f' % voc_ap_50) + ',' + str('%.2f' % voc_ap_75) + ',' + str('%.2f' % voc_ap_small) + ',' + str('%.2f' % voc_ap_medium) + ',' + str('%.2f' % voc_ap_large) + '\n'
-        eval_log += 'Non-VOC' + ',' + str('%.2f' % non_voc_ap) + ',' + str('%.2f' % non_voc_ap_50) + ',' + str('%.2f' % non_voc_ap_75) + ',' + str('%.2f' % non_voc_ap_small) + ',' + str('%.2f' % non_voc_ap_medium) + ',' + str('%.2f' % non_voc_ap_large) + '\n'
-
-        with open('evaluation_result.csv', 'a') as f:
-            f.write(eval_log)
-        '''
-        # tabulate it
+    def _log_per_category_results(self, iou_type, results_per_category):
         N_COLS = min(6, len(results_per_category) * 2)
         results_flatten = list(itertools.chain(*results_per_category))
         results_2d = itertools.zip_longest(*[results_flatten[i::N_COLS] for i in range(N_COLS)])
@@ -401,9 +469,109 @@ class COCOEvaluator(DatasetEvaluator):
         )
         self._logger.info("Per-category {} AP: \n".format(iou_type) + table)
 
-        results.update({"AP-" + name: ap for name, ap in results_per_category})
-        return results
+    def _calculate_per_class_AP(self, precisions, class_names):
+        """
+        Calculate per-class AP.
 
+        Args:
+            precisions (np.array): Precision values for each class.
+            class_names (list[str]): List of class names.
+
+        Returns:
+            List[float]: List of AP scores for each class.
+        """
+        class_aps = []
+        for idx, name in enumerate(class_names):
+            # area range index 0: all area ranges
+            # max dets index -1: typically 100 per image
+            precision = precisions[:, :, idx, 0, -1]
+            precision = precision[precision > -1]
+            ap = np.mean(precision) if precision.size else np.nan
+            class_aps.append(("{}".format(name), float(ap * 100)))
+        return class_aps
+    
+    def _calculate_summary_metrics(self, class_names, precisions, category_prefix, is_voc):
+        """
+        Calculate summary AP metrics for either VOC or non-VOC categories.
+
+        Args:
+            class_names (list[str]): List of class names.
+            precisions (np.array): Precision values for each class.
+            category_prefix (str): Prefix for the category (VOC or Non VOC).
+            is_voc (bool): Whether the category is VOC or not.
+
+        Returns:
+            List[float]: List of AP scores for all, IOU .50, IOU .75, small, medium, large areas.
+        """
+        aps = []  # Stores AP scores for all conditions
+
+        # Define area range indexes for small, medium, and large
+        area_range_idxs = [(0, -1),  # all areas
+                           (1, 0),   # T=0 for IOU .50
+                           (5, 0),   # T=5 for IOU .75
+                           (1, 1),   # A=1 for small
+                           (1, 2),   # A=2 for medium
+                           (1, 3)]   # A=3 for large
+
+        category_classes = [i for i, name in enumerate(class_names) if (name in self.CLASS_NAMES) == is_voc]
+
+        for T, A in area_range_idxs:
+            class_aps = []
+            for idx in category_classes:
+                precision = precisions[T, :, idx, A, -1]
+                
+                precision = precision[precision > -1]
+                ap = np.mean(precision) if precision.size else np.nan
+                
+                class_aps.append(ap)
+
+            mean_ap = np.nanmean(class_aps) * 100 if class_aps else np.nan
+            aps.append(mean_ap)
+
+        return aps
+
+class COCOEvaluator(BaseCOCOEvaluator):
+    """
+    Evaluator for COCO dataset based on the COCOEvaluator for handling COCO specific class names.
+    """
+    CLASS_NAMES = [
+        "airplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat",
+        "chair", "cow", "dining table", "dog", "horse", "motorcycle", "person",
+        "potted plant", "sheep", "couch", "train", "tv",
+    ]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DIOREvaluator(BaseCOCOEvaluator):
+    """
+    Evaluator for DIOR dataset based on the COCOEvaluator for handling DIOR specific class names.
+    """
+    CLASS_NAMES = [
+        "Airplane ", "Baseball field ", "Tennis court ", "Train station ",
+        "Wind mill",
+    ]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DOTAEvaluator(BaseCOCOEvaluator):
+    """
+    Evaluator for COCO dataset based on the COCOEvaluator for handling DOTA specific class names.
+    """
+    CLASS_NAMES = ["storage-tank", "tennis-court", "soccer-ball-field"]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class PASCALEvaluator(BaseCOCOEvaluator):
+    """
+    Evaluator for Pascal dataset based on the COCOEvaluator for handling Pascal specific class names.
+    """
+    CLASS_NAMES = ['bird', 'bus', 'cow', 'motorbike', 'sofa']
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        
 def instances_to_coco_json(instances, img_id):
     """
     Dump an "Instances" object to a COCO-format json that's used for evaluation.
@@ -466,126 +634,11 @@ def instances_to_coco_json(instances, img_id):
     return results
 
 
-# inspired from Detectron:
-# https://github.com/facebookresearch/Detectron/blob/a6a835f5b8208c45d0dce217ce9bbda915f44df7/detectron/datasets/json_dataset_evaluator.py#L255 # noqa
-# evaluate proposals for novel classes
-def _evaluate_box_proposals(dataset_predictions, coco_api, class_names, mapper, thresholds=None, area="all", limit=None):
-    """
-    Evaluate detection proposal recall metrics. This function is a much
-    faster alternative to the official COCO API recall evaluation code. However,
-    it produces slightly different results.
-    """
-    # Record max overlap value for each gt box
-    # Return vector of overlap values
-    areas = {
-        "all": 0,
-        "small": 1,
-        "medium": 2,
-        "large": 3,
-        "96-128": 4,
-        "128-256": 5,
-        "256-512": 6,
-        "512-inf": 7,
-    }
-    area_ranges = [
-        [0 ** 2, 1e5 ** 2],  # all
-        [0 ** 2, 32 ** 2],  # small
-        [32 ** 2, 96 ** 2],  # medium
-        [96 ** 2, 1e5 ** 2],  # large
-        [96 ** 2, 128 ** 2],  # 96-128
-        [128 ** 2, 256 ** 2],  # 128-256
-        [256 ** 2, 512 ** 2],  # 256-512
-        [512 ** 2, 1e5 ** 2],
-    ]  # 512-inf
-    assert area in areas, "Unknown area range: {}".format(area)
-    area_range = area_ranges[areas[area]]
-    gt_overlaps = []
-    num_pos = 0
-
-    for prediction_dict in dataset_predictions:
-        predictions = prediction_dict["proposals"]
-
-        # sort predictions in descending order
-        # TODO maybe remove this and make it explicit in the documentation
-        inds = predictions.objectness_logits.sort(descending=True)[1]
-        predictions = predictions[inds]
-
-        ann_ids = coco_api.getAnnIds(imgIds=prediction_dict["image_id"])
-        anno = coco_api.loadAnns(ann_ids)
-
-        gt_boxes = [
-            BoxMode.convert(obj["bbox"], BoxMode.XYWH_ABS, BoxMode.XYXY_ABS)
-            for obj in anno
-            if obj["iscrowd"] == 0 and class_names[mapper[obj["category_id"]]] in CLASS_NAMES
-        ]
-        gt_boxes = torch.as_tensor(gt_boxes).reshape(-1, 4)  # guard against no boxes
-        gt_boxes = Boxes(gt_boxes)
-        gt_areas = torch.as_tensor([obj["area"] for obj in anno if obj["iscrowd"] == 0 and class_names[mapper[obj["category_id"]]] in CLASS_NAMES])
-
-        if len(gt_boxes) == 0 or len(predictions) == 0:
-            continue
-
-        valid_gt_inds = (gt_areas >= area_range[0]) & (gt_areas <= area_range[1])
-        gt_boxes = gt_boxes[valid_gt_inds]
-
-        num_pos += len(gt_boxes)
-
-        if len(gt_boxes) == 0:
-            continue
-
-        if limit is not None and len(predictions) > limit:
-            predictions = predictions[:limit]
-
-        overlaps = pairwise_iou(predictions.proposal_boxes, gt_boxes)
-
-        _gt_overlaps = torch.zeros(len(gt_boxes))
-        for j in range(min(len(predictions), len(gt_boxes))):
-            # find which proposal box maximally covers each gt box
-            # and get the iou amount of coverage for each gt box
-            max_overlaps, argmax_overlaps = overlaps.max(dim=0)
-
-            # find which gt box is 'best' covered (i.e. 'best' = most iou)
-            gt_ovr, gt_ind = max_overlaps.max(dim=0)
-            assert gt_ovr >= 0
-            # find the proposal box that covers the best covered gt box
-            box_ind = argmax_overlaps[gt_ind]
-            # record the iou coverage of this gt box
-            _gt_overlaps[j] = overlaps[box_ind, gt_ind]
-            assert _gt_overlaps[j] == gt_ovr
-            # mark the proposal box and the gt box as used
-            overlaps[box_ind, :] = -1
-            overlaps[:, gt_ind] = -1
-
-        # append recorded iou coverage level
-        gt_overlaps.append(_gt_overlaps)
-    gt_overlaps = (
-        torch.cat(gt_overlaps, dim=0) if len(gt_overlaps) else torch.zeros(0, dtype=torch.float32)
-    )
-    gt_overlaps, _ = torch.sort(gt_overlaps)
-
-    if thresholds is None:
-        step = 0.05
-        thresholds = torch.arange(0.5, 0.95 + 1e-5, step, dtype=torch.float32)
-    recalls = torch.zeros_like(thresholds)
-    # compute recall for each iou threshold
-    for i, t in enumerate(thresholds):
-        recalls[i] = (gt_overlaps >= t).float().sum() / float(num_pos)
-    # ar = 2 * np.trapz(recalls, thresholds)
-    ar = recalls.mean()
-    return {
-        "ar": ar,
-        "recalls": recalls,
-        "thresholds": thresholds,
-        "gt_overlaps": gt_overlaps,
-        "num_pos": num_pos,
-    }
-
-
 def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigmas=None):
     """
     Evaluate the coco results using COCOEval API.
     """
-    assert len(coco_results) > 0
+    assert len(coco_results) > 0, "No results to evaluate."
 
     if iou_type == "segm":
         coco_results = copy.deepcopy(coco_results)
@@ -609,12 +662,11 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigma
         num_keypoints_dt = len(coco_results[0]["keypoints"]) // 3
         num_keypoints_gt = len(next(iter(coco_gt.anns.values()))["keypoints"]) // 3
         num_keypoints_oks = len(coco_eval.params.kpt_oks_sigmas)
-        assert num_keypoints_oks == num_keypoints_dt == num_keypoints_gt, (
-            f"[COCOEvaluator] Prediction contain {num_keypoints_dt} keypoints. "
-            f"Ground truth contains {num_keypoints_gt} keypoints. "
-            f"The length of cfg.TEST.KEYPOINT_OKS_SIGMAS is {num_keypoints_oks}. "
-            "They have to agree with each other. For meaning of OKS, please refer to "
-            "http://cocodataset.org/#keypoints-eval."
+        assert num_keypoints_oks == num_keypoints_dt == num_keypoints_gt, (            
+            f"[COCOEvaluator] Predictions contain {num_keypoints_dt} keypoints, "
+            f"but ground truth contains {num_keypoints_gt} keypoints, "
+            f"and the length of kpt_oks_sigmas is {num_keypoints_oks}. "
+            "These counts must match. http://cocodataset.org/#keypoints-eval."
         )
 
     coco_eval.evaluate()
