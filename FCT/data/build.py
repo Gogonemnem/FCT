@@ -205,6 +205,11 @@ def build_detection_test_loader(cfg, dataset_name, mapper=None):
             mapper = DatasetMapperWithSupportCOCO(cfg, False)
     dataset = MapDataset(dataset, mapper)
 
+    # from torch.utils.data import Subset
+    # subset_size = 4*1
+    # subset_indices = torch.randperm(len(dataset))[:subset_size]
+    # dataset = Subset(dataset, subset_indices)
+
     sampler = InferenceSampler(len(dataset))
     # Always use 1 image per worker during inference since this is the
     # standard when reporting inference time in papers.
