@@ -27,7 +27,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Log directory path, constructed based on the configuration file name
-LOG_DIR="log/$(basename "$CONFIG_FILE" .yaml)"
+LOG_DIR="logs/$(basename "$CONFIG_FILE" .yaml)"
 
 # Check if the log directory exists, create it if not
 if [ ! -d "$LOG_DIR" ]; then
@@ -42,4 +42,4 @@ CUDA_VISIBLE_DEVICES=$(seq -s, 0 $(($NUM_GPUS-1)))
 
 # Execute the command with the detected number of GPUs and configuration file
 python3 fsod_train_net.py --num-gpus $NUM_GPUS --dist-url auto --eval-only --resume \
-        --config-file "$CONFIG_FILE" SOLVER.IMS_PER_BATCH 8 2>&1 | tee "$LOG_DIR/$(basename "$CONFIG_FILE").txt"
+        --config-file "$CONFIG_FILE" SOLVER.IMS_PER_BATCH 8 2>&1 | tee "$LOG_DIR/$(basename "$CONFIG_FILE" .yaml).log"
