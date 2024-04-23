@@ -2,7 +2,7 @@
 .vscode/
 
 # Ignore Python virtual environments
-venv/
+*venv*/
 env/
 *.pyc
 
