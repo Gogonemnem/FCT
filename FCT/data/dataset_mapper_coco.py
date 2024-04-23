@@ -8,8 +8,6 @@ import copy
 import logging
 import numpy as np
 import torch
-from fvcore.common.file_io import PathManager
-from PIL import Image
 import os
 
 from detectron2.data import detection_utils as utils
@@ -17,6 +15,7 @@ from detectron2.data import transforms as T
 
 import pandas as pd
 from detectron2.data.catalog import MetadataCatalog
+from detectron2.data.dataset_mapper import DatasetMapper
 
 """
 This file contains the default mapping that's applied to "dataset dicts".
@@ -25,272 +24,166 @@ This file contains the default mapping that's applied to "dataset dicts".
 __all__ = ["DatasetMapperWithSupportCOCO"]
 
 
-class DatasetMapperWithSupportCOCO:
+class DatasetMapperWithSupportCOCO(DatasetMapper):
     """
-    A callable which takes a dataset dict in Detectron2 Dataset format,
-    and map it into a format used by the model.
-
-    This is the default callable to be used to map your dataset dict into training data.
-    You may need to follow it to implement your own one for customized logic,
-    such as a different way to read or transform images.
-    See :doc:`/tutorials/data_loading` for details.
-
-    The callable currently does the following:
-
-    1. Read the image from "file_name"
-    2. Applies cropping/geometric transforms to the image and annotations
-    3. Prepare data and annotations to Tensor and :class:`Instances`
+    Extends DatasetMapper to include support data for few-shot learning.
     """
-
     def __init__(self, cfg, is_train=True):
-        if cfg.INPUT.CROP.ENABLED and is_train:
-            self.crop_gen = T.RandomCrop(cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE)
-            logging.getLogger(__name__).info("CropGen used in training: " + str(self.crop_gen))
-        else:
-            self.crop_gen = None
-
-        self.tfm_gens = utils.build_transform_gen(cfg, is_train)
-
-        # fmt: off
-        self.img_format     = cfg.INPUT.FORMAT
-        self.mask_on        = cfg.MODEL.MASK_ON
-        self.mask_format    = cfg.INPUT.MASK_FORMAT
-        self.keypoint_on    = cfg.MODEL.KEYPOINT_ON
-        self.load_proposals = cfg.MODEL.LOAD_PROPOSALS
-
-        self.few_shot       = cfg.INPUT.FS.FEW_SHOT
-        self.support_way    = cfg.INPUT.FS.SUPPORT_WAY
-        self.support_shot   = cfg.INPUT.FS.SUPPORT_SHOT
-        self.seeds          = cfg.DATASETS.SEEDS
-        # fmt: on
-        if self.keypoint_on and is_train:
-            # Flip only makes sense in training
-            self.keypoint_hflip_indices = utils.create_keypoint_hflip_indices(cfg.DATASETS.TRAIN)
-        else:
-            self.keypoint_hflip_indices = None
-
-        if self.load_proposals:
-            self.proposal_min_box_size = cfg.MODEL.PROPOSAL_GENERATOR.MIN_SIZE
-            self.proposal_topk = (
-                cfg.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TRAIN
-                if is_train
-                else cfg.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TEST
-            )
-        self.is_train = is_train
+        super().__init__(cfg, is_train=is_train)  # Initialize the base class with the configuration
+        # Additional initialization for support data
+        self.support_way = cfg.INPUT.FS.SUPPORT_WAY
+        self.support_shot = cfg.INPUT.FS.SUPPORT_SHOT
+        self.seeds = cfg.DATASETS.SEEDS
         self.data_dir = cfg.DATA_DIR
+        self.crop_gen = cfg.INPUT.CROP.ENABLED
+        self.initialize_support_data(cfg)  # Initialize the support data based on the configuration
 
+    def initialize_support_data(self, cfg):
+        """
+        Load support data based on the training configuration.
+        """
+        # Similar loading logic for support data as previously discussed
         if self.is_train:
-            # support_df
-            self.support_on = True
-            if self.few_shot:
-                if 'full' in cfg.DATASETS.TRAIN[0]:
-                    if self.seeds == 0:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                    else:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-                else:
-                    if self.seeds == 0:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                    else:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-            else:
-                self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/train_support_df.pkl"))
-                print("training support_df= ", os.path.join(self.data_dir, "coco/train_support_df.pkl"))
+            support_path = self.determine_support_path(cfg)
+            self.support_df = pd.read_pickle(support_path)
+            logging.getLogger(__name__).info(f"Loaded support data from: {support_path}")
+
             if 'coco' in cfg.DATASETS.TRAIN[0]:
                 metadata = MetadataCatalog.get('coco_2014_train')
             else:
-                metadata = MetadataCatalog.get(cfg.DATASETS.TRAIN[0])##'coco_2014_train')
-            # unmap the category mapping ids for COCO
-            reverse_id_mapper = lambda dataset_id: metadata.thing_dataset_id_to_contiguous_id[dataset_id]  # noqa
-            self.support_df['category_id'] = self.support_df['category_id'].map(reverse_id_mapper)
+                metadata = MetadataCatalog.get(cfg.DATASETS.TRAIN[0])
+            
+            self.support_df['category_id'] = self.support_df['category_id'].map(
+                lambda x: metadata.thing_dataset_id_to_contiguous_id[x]
+            )
 
-
+    def determine_support_path(self, cfg):
+        """
+        Determine the file path for the support data based on the configuration.
+        """
+        if cfg.INPUT.FS.FEW_SHOT:
+            file_name = f"{'full_class_' if 'full' in cfg.DATASETS.TRAIN[0] else ''}{self.support_shot}_shot_support_df.pkl"
+            if self.seeds:
+                path = f"coco/seed{self.seeds}/{file_name}"
+            else:
+                path = f"coco/{file_name}"
+        else:
+            path = "coco/train_support_df.pkl"
+        return os.path.join(self.data_dir, path)
+    
     def __call__(self, dataset_dict):
         """
-        Args:
-            dataset_dict (dict): Metadata of one image, in Detectron2 Dataset format.
-
-        Returns:
-            dict: a format that builtin models in detectron2 accept
+        Overrides the call method to customize image and annotation transformations.
         """
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
         # USER: Write your own image loading if it's not from a file
-        image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
+        image = utils.read_image(dataset_dict["file_name"], format=self.image_format)
         utils.check_image_size(dataset_dict, image)
-        if self.is_train:
-            # support
-            if self.support_on:
-                if "annotations" in dataset_dict:
-                    # USER: Modify this if you want to keep them for some reason.
-                    for anno in dataset_dict["annotations"]:
-                        if not self.mask_on:
-                            anno.pop("segmentation", None)
-                        if not self.keypoint_on:
-                            anno.pop("keypoints", None)
-                support_images, support_bboxes, support_cls = self.generate_support(dataset_dict)
-                dataset_dict['support_images'] = torch.as_tensor(np.ascontiguousarray(support_images))
-                dataset_dict['support_bboxes'] = support_bboxes
-                dataset_dict['support_cls'] = support_cls
 
-        if "annotations" not in dataset_dict:
-            image, transforms = T.apply_transform_gens(
-                ([self.crop_gen] if self.crop_gen else []) + self.tfm_gens, image
-            )
+        # USER: Remove if you don't do semantic/panoptic segmentation.
+        if "sem_seg_file_name" in dataset_dict:
+            sem_seg_gt = utils.read_image(dataset_dict.pop("sem_seg_file_name"), "L").squeeze(2)
         else:
-            # Crop around an instance if there are instances in the image.
-            # USER: Remove if you don't use cropping
-            if self.crop_gen:
+            sem_seg_gt = None
+        
+        # Apply image and annotation transforms
+        annotations = dataset_dict.get("annotations")
+        if self.crop_gen:
+            if annotations:
+                # If annotations exist, use them to guide the cropping
                 crop_tfm = utils.gen_crop_transform_with_instance(
                     self.crop_gen.get_crop_size(image.shape[:2]),
                     image.shape[:2],
-                    np.random.choice(dataset_dict["annotations"]),
+                    np.random.choice(annotations)
                 )
-                image = crop_tfm.apply_image(image)
-            image, transforms = T.apply_transform_gens(self.tfm_gens, image)
-            if self.crop_gen:
-                transforms = crop_tfm + transforms
+            else:
+                # Apply random crop without guidance from annotations
+                crop_tfm = self.crop_gen
+            transforms.insert(0, crop_tfm)
+
+
+        aug_input = T.AugInput(image, sem_seg=sem_seg_gt)
+        transforms = self.augmentations(aug_input)
+        image, sem_seg_gt = aug_input.image, aug_input.sem_seg
 
         image_shape = image.shape[:2]  # h, w
-
         # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
         # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
         # Therefore it's important to use torch.Tensor.
-        dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1))).contiguous()
-
+        dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1))).contiguous()  
+        if sem_seg_gt is not None:
+            dataset_dict["sem_seg"] = torch.as_tensor(sem_seg_gt.astype("long"))          
+        
         # USER: Remove if you don't use pre-computed proposals.
         # Most users would not need this feature.
-        if self.load_proposals:
+        if self.proposal_topk is not None:
             utils.transform_proposals(
-                dataset_dict,
-                image_shape,
-                transforms,
-                self.proposal_min_box_size,
-                self.proposal_topk,
+                dataset_dict, image_shape, transforms, proposal_topk=self.proposal_topk
             )
-
+        
         if not self.is_train:
             # USER: Modify this if you want to keep them for some reason.
             dataset_dict.pop("annotations", None)
             dataset_dict.pop("sem_seg_file_name", None)
             return dataset_dict
 
+        support_images, support_bboxes, support_cls = self.generate_support(dataset_dict)
+        dataset_dict.update({'support_images': support_images, 'support_bboxes': support_bboxes, 'support_cls': support_cls})
+        
         if "annotations" in dataset_dict:
-            # USER: Modify this if you want to keep them for some reason.
-            for anno in dataset_dict["annotations"]:
-                if not self.mask_on:
-                    anno.pop("segmentation", None)
-                if not self.keypoint_on:
-                    anno.pop("keypoints", None)
-            
-            # USER: Implement additional transformations if you have other types of data
-            annos = [
-                utils.transform_instance_annotations(
-                    obj, transforms, image_shape, keypoint_hflip_indices=self.keypoint_hflip_indices
-                )
-                for obj in dataset_dict.pop("annotations")
-                if obj.get("iscrowd", 0) == 0
-            ]
-            instances = utils.annotations_to_instances(
-                annos, image_shape, mask_format=self.mask_format
-            )
-            # Create a tight bounding box from masks, useful when image is cropped
-            if self.crop_gen and instances.has("gt_masks"):
-                instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
-            dataset_dict["instances"] = utils.filter_empty_instances(instances)
-
-        # USER: Remove if you don't do semantic/panoptic segmentation.
-        if "sem_seg_file_name" in dataset_dict:
-            with PathManager.open(dataset_dict.pop("sem_seg_file_name"), "rb") as f:
-                sem_seg_gt = Image.open(f)
-                sem_seg_gt = np.asarray(sem_seg_gt, dtype="uint8")
-            sem_seg_gt = transforms.apply_segmentation(sem_seg_gt)
-            sem_seg_gt = torch.as_tensor(sem_seg_gt.astype("long"))
-            dataset_dict["sem_seg"] = sem_seg_gt
+            self._transform_annotations(dataset_dict, transforms, image_shape)
+        
         return dataset_dict
 
     def generate_support(self, dataset_dict):
-        support_way = self.support_way #2
-        support_shot = self.support_shot #5
+        support_way = self.support_way  # Number of different classes to include
+        support_shot = self.support_shot  # Number of examples per class
+
+        # Extract classes present in the query image
+        query_classes = set([anno['category_id'] for anno in dataset_dict['annotations']])
         
-        id = dataset_dict['annotations'][0]['id']
-        # print("id=", id)
-        query_cls = self.support_df.loc[self.support_df['id']==id, 'category_id'].tolist()#[0] # they share the same category_id and image_id
-        # print("query_cls=", query_cls)
-        query_cls = query_cls[0]
-        query_img = self.support_df.loc[self.support_df['id']==id, 'image_id'].tolist()[0]
-        all_cls = self.support_df.loc[self.support_df['image_id']==query_img, 'category_id'].tolist()
+        # Ensure at least one query class is included in the support set
+        chosen_query_class = np.random.choice(list(query_classes))
+        sampled_classes = [chosen_query_class]
 
-        # Crop support data and get new support box in the support data
-        support_data_all = np.zeros((support_way * support_shot, 3, 320, 320), dtype = np.float32)
-        support_box_all = np.zeros((support_way * support_shot, 4), dtype = np.float32)
-        used_image_id = [query_img]
+        # Gather all possible classes excluding the already chosen query class
+        remaining_classes = list(set(self.support_df['category_id'].unique()) - set([chosen_query_class]))
 
-        used_id_ls = []
-        # for item in dataset_dict['annotations']:
-        #     used_id_ls.append(item['id'])
-        #used_category_id = [query_cls]
-        used_category_id = list(set(all_cls))
-        support_category_id = []
-        mixup_i = 0
-
-        for shot in range(support_shot):
-            # Support image and box
-            support_list = self.support_df.loc[(self.support_df['category_id'] == query_cls) & (~self.support_df['id'].isin(used_id_ls)), 'id']
-            if support_list.empty:
-                continue
+        # Randomly select the rest of the classes to fill up the support set
+        num_needed_classes = support_way - 1  # One less because we already included a query class
+        if num_needed_classes > 0:
+            if len(remaining_classes) + len(query_classes) - 1 < num_needed_classes:
+                additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=True)
             else:
-                support_id = support_list.sample().tolist()[0]
-            support_cls = self.support_df.loc[self.support_df['id'] == support_id, 'category_id'].tolist()[0]
-            support_img = self.support_df.loc[self.support_df['id'] == support_id, 'image_id'].tolist()[0]
-            used_id_ls.append(support_id) 
-            # used_image_id.append(support_img)
-
-            support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
-            assert support_db['id'].values[0] == support_id
+                additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=False)
+            sampled_classes.extend(additional_classes)
             
-            support_data = utils.read_image(support_db["file_path"].tolist()[0], format=self.img_format) ##'./datasets/coco/' +
-            support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
-            support_box = support_db['support_box'].tolist()[0]
-            #print(support_data)
-            support_data_all[mixup_i] = support_data
-            support_box_all[mixup_i] = support_box
-            support_category_id.append(support_cls) #0) #support_cls)
-            mixup_i += 1
+        support_data_all = []
+        support_box_all = []
+        support_category_id = []
 
-        if support_way == 1:
-            pass
-        else:
-            for way in range(support_way-1):
-                other_cls = self.support_df.loc[(~self.support_df['category_id'].isin(used_category_id)), 'category_id'].drop_duplicates().sample().tolist()[0]
-                used_category_id.append(other_cls)
-                for shot in range(support_shot):
-                    # Support image and box
+        for cls in sampled_classes:
+            # Get the support examples for this class
+            support_list = self.support_df[self.support_df['category_id'] == cls]
+            if len(support_list) < support_shot:
+                chosen_support = support_list.sample(n=support_shot, replace=True)
+            else:
+                chosen_support = support_list.sample(n=support_shot, replace=False)
 
-                    support_list = self.support_df.loc[(self.support_df['category_id'] == other_cls) & (~self.support_df['id'].isin(used_id_ls)), 'id']
-                    if support_list.empty:
-                        continue
-                    else:
-                        support_id = support_list.sample().tolist()[0]
-                     
-                    support_cls = self.support_df.loc[self.support_df['id'] == support_id, 'category_id'].tolist()[0]
-                    support_img = self.support_df.loc[self.support_df['id'] == support_id, 'image_id'].tolist()[0]
+            for _, support_item in chosen_support.iterrows():
+                support_data = utils.read_image(os.path.join(self.data_dir, "coco", support_item["file_path"]), format=self.image_format)
+                support_tensor = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
+                support_box = support_item['support_box']
 
-                    used_id_ls.append(support_id) 
-                    # used_image_id.append(support_img)
+                support_data_all.append(support_tensor)
+                support_box_all.append(torch.tensor(support_box))
+                support_category_id.append(cls)
 
-                    support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
-                    assert support_db['id'].values[0] == support_id
-
-                    support_data = utils.read_image(support_db["file_path"].tolist()[0], format=self.img_format)    ##'./datasets/coco/' + 
-                    support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
-                    support_box = support_db['support_box'].tolist()[0]
-                    support_data_all[mixup_i] = support_data
-                    support_box_all[mixup_i] = support_box
-                    support_category_id.append(support_cls) #1) #support_cls)
-                    mixup_i += 1
-        
+        # Convert lists to tensors for processing
+        support_data_all = torch.stack(support_data_all)
+        support_box_all = torch.stack(support_box_all)
         return support_data_all, support_box_all, support_category_id
+
+
+
+
