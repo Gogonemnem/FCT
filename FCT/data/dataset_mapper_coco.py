@@ -86,6 +86,8 @@ class DatasetMapperWithSupportCOCO(DatasetMapper):
         else:
             sem_seg_gt = None
         
+        augmentations = copy.deepcopy(self.augmentations)
+
         # Apply image and annotation transforms
         annotations = dataset_dict.get("annotations")
         if self.crop_gen:
@@ -99,11 +101,11 @@ class DatasetMapperWithSupportCOCO(DatasetMapper):
             else:
                 # Apply random crop without guidance from annotations
                 crop_tfm = self.crop_gen
-            transforms.insert(0, crop_tfm)
+            augmentations.insert(0, crop_tfm)
 
 
         aug_input = T.AugInput(image, sem_seg=sem_seg_gt)
-        transforms = self.augmentations(aug_input)
+        transforms = augmentations(aug_input)
         image, sem_seg_gt = aug_input.image, aug_input.sem_seg
 
         image_shape = image.shape[:2]  # h, w
