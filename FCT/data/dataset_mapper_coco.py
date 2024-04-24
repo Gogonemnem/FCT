@@ -135,138 +135,53 @@ class DatasetMapperWithSupportCOCO(DatasetMapper):
         return dataset_dict
 
     def generate_support(self, dataset_dict):
-        support_way = self.support_way #2
-        support_shot = self.support_shot #5
+        support_way = self.support_way  # Number of different classes to include
+        support_shot = self.support_shot  # Number of examples per class
+
+        # Extract classes present in the query image
+        query_classes = set([anno['category_id'] for anno in dataset_dict['annotations']])
         
-        id = dataset_dict['annotations'][0]['id']
-        # print("id=", id)
-        query_cls = self.support_df.loc[self.support_df['id']==id, 'category_id'].tolist()#[0] # they share the same category_id and image_id
-        # print("query_cls=", query_cls)
-        query_cls = query_cls[0]
-        query_img = self.support_df.loc[self.support_df['id']==id, 'image_id'].tolist()[0]
-        all_cls = self.support_df.loc[self.support_df['image_id']==query_img, 'category_id'].tolist()
+        # Ensure at least one query class is included in the support set
+        chosen_query_class = np.random.choice(list(query_classes))
+        sampled_classes = [chosen_query_class]
 
-        # Crop support data and get new support box in the support data
-        support_data_all = np.zeros((support_way * support_shot, 3, 320, 320), dtype = np.float32)
-        support_box_all = np.zeros((support_way * support_shot, 4), dtype = np.float32)
-        used_image_id = [query_img]
+        # Gather all possible classes excluding the (already chosen) query class(es)
+        remaining_classes = list(set(self.support_df['category_id'].unique()) - query_classes) # set([chosen_query_class]))
 
-        used_id_ls = []
-        # for item in dataset_dict['annotations']:
-        #     used_id_ls.append(item['id'])
-        #used_category_id = [query_cls]
-        used_category_id = list(set(all_cls))
-        support_category_id = []
-        mixup_i = 0
-
-        for shot in range(support_shot):
-            # Support image and box
-            support_list = self.support_df.loc[(self.support_df['category_id'] == query_cls) & (~self.support_df['id'].isin(used_id_ls)), 'id']
-            if support_list.empty:
-                continue
+        # Randomly select the rest of the classes to fill up the support set
+        num_needed_classes = support_way - 1  # One less because we already included a query class
+        if num_needed_classes > 0:
+            if len(remaining_classes) + len(query_classes) - 1 < num_needed_classes:
+                additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=True)
             else:
-                support_id = support_list.sample().tolist()[0]
-            support_cls = self.support_df.loc[self.support_df['id'] == support_id, 'category_id'].tolist()[0]
-            support_img = self.support_df.loc[self.support_df['id'] == support_id, 'image_id'].tolist()[0]
-            used_id_ls.append(support_id) 
-            # used_image_id.append(support_img)
-
-            support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
-            assert support_db['id'].values[0] == support_id
+                additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=False)
+            sampled_classes.extend(additional_classes)
             
-            support_data = utils.read_image('./datasets/coco/' + support_db["file_path"].tolist()[0], format=self.img_format)
-            support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
-            support_box = support_db['support_box'].tolist()[0]
-            #print(support_data)
-            support_data_all[mixup_i] = support_data
-            support_box_all[mixup_i] = support_box
-            support_category_id.append(support_cls) #0) #support_cls)
-            mixup_i += 1
+        support_data_all = []
+        support_box_all = []
+        support_category_id = []
 
-        if support_way == 1:
-            pass
-        else:
-            for way in range(support_way-1):
-                other_cls = self.support_df.loc[(~self.support_df['category_id'].isin(used_category_id)), 'category_id'].drop_duplicates().sample().tolist()[0]
-                used_category_id.append(other_cls)
-                for shot in range(support_shot):
-                    # Support image and box
+        for cls in sampled_classes:
+            # Get the support examples for this class
+            support_list = self.support_df[self.support_df['category_id'] == cls]
+            if len(support_list) < support_shot:
+                chosen_support = support_list.sample(n=support_shot, replace=True)
+            else:
+                chosen_support = support_list.sample(n=support_shot, replace=False)
 
-                    support_list = self.support_df.loc[(self.support_df['category_id'] == other_cls) & (~self.support_df['id'].isin(used_id_ls)), 'id']
-                    if support_list.empty:
-                        continue
-                    else:
-                        support_id = support_list.sample().tolist()[0]
-                     
-                    support_cls = self.support_df.loc[self.support_df['id'] == support_id, 'category_id'].tolist()[0]
-                    support_img = self.support_df.loc[self.support_df['id'] == support_id, 'image_id'].tolist()[0]
+            for _, support_item in chosen_support.iterrows():
+                support_data = utils.read_image(os.path.join(self.data_dir, "coco", support_item["file_path"]), format=self.image_format)
+                support_tensor = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
+                support_box = support_item['support_box']
 
-                    used_id_ls.append(support_id) 
-                    # used_image_id.append(support_img)
+                support_data_all.append(support_tensor)
+                support_box_all.append(torch.tensor(support_box))
+                support_category_id.append(cls)
 
-                    support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
-                    assert support_db['id'].values[0] == support_id
-
-                    support_data = utils.read_image('./datasets/coco/' + support_db["file_path"].tolist()[0], format=self.img_format)
-                    support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
-                    support_box = support_db['support_box'].tolist()[0]
-                    support_data_all[mixup_i] = support_data
-                    support_box_all[mixup_i] = support_box
-                    support_category_id.append(support_cls) #1) #support_cls)
-                    mixup_i += 1
-        
+        # Convert lists to tensors for processing
+        support_data_all = torch.stack(support_data_all)
+        support_box_all = torch.stack(support_box_all)
         return support_data_all, support_box_all, support_category_id
-
-        
-    """Idea to make the code not be 2 way contrastive only"""
-    # def generate_support(self, dataset_dict):
-    #     support_way = self.support_way  # Number of different classes to include
-    #     support_shot = self.support_shot  # Number of examples per class
-
-    #     # Extract classes present in the query image
-    #     query_classes = set([anno['category_id'] for anno in dataset_dict['annotations']])
-        
-    #     # Ensure at least one query class is included in the support set
-    #     chosen_query_class = np.random.choice(list(query_classes))
-    #     sampled_classes = [chosen_query_class]
-
-    #     # Gather all possible classes excluding the already chosen query class
-    #     remaining_classes = list(set(self.support_df['category_id'].unique()) - set([chosen_query_class]))
-
-    #     # Randomly select the rest of the classes to fill up the support set
-    #     num_needed_classes = support_way - 1  # One less because we already included a query class
-    #     if num_needed_classes > 0:
-    #         if len(remaining_classes) + len(query_classes) - 1 < num_needed_classes:
-    #             additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=True)
-    #         else:
-    #             additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=False)
-    #         sampled_classes.extend(additional_classes)
-            
-    #     support_data_all = []
-    #     support_box_all = []
-    #     support_category_id = []
-
-    #     for cls in sampled_classes:
-    #         # Get the support examples for this class
-    #         support_list = self.support_df[self.support_df['category_id'] == cls]
-    #         if len(support_list) < support_shot:
-    #             chosen_support = support_list.sample(n=support_shot, replace=True)
-    #         else:
-    #             chosen_support = support_list.sample(n=support_shot, replace=False)
-
-    #         for _, support_item in chosen_support.iterrows():
-    #             support_data = utils.read_image(os.path.join(self.data_dir, "coco", support_item["file_path"]), format=self.image_format)
-    #             support_tensor = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
-    #             support_box = support_item['support_box']
-
-    #             support_data_all.append(support_tensor)
-    #             support_box_all.append(torch.tensor(support_box))
-    #             support_category_id.append(cls)
-
-    #     # Convert lists to tensors for processing
-    #     support_data_all = torch.stack(support_data_all)
-    #     support_box_all = torch.stack(support_box_all)
-    #     return support_data_all, support_box_all, support_category_id
 
 
 
