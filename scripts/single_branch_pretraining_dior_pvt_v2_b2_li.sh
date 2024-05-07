@@ -41,5 +41,5 @@ NUM_GPUS=$(nvidia-smi -L | wc -l)
 CUDA_VISIBLE_DEVICES=$(seq -s, 0 $(($NUM_GPUS-1)))
 
 # Execute the command with the detected number of GPUs and configuration file
-python3 faster_rcnn_train_net.py --num-gpus 1 --dist-url auto \
+python3 faster_rcnn_train_net.py --num-gpus $NUM_GPUS --dist-url auto \
         --config-file "$CONFIG_FILE" SOLVER.IMS_PER_BATCH 8 SOLVER.ACCUMULATION_STEPS 1 2>&1 | tee "$LOG_DIR/$(basename "$CONFIG_FILE" .yaml).log"
