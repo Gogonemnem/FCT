@@ -1,0 +1,5 @@
+_BASE_: "pascalvoc.yaml"
+DATASETS:
+  TRAIN: ("voc_2007_trainval_base1", "voc_2012_trainval_base1")
+  TEST: ("voc_2007_test_all1",)
+  TEST_KEEPCLASSES: 'all1'

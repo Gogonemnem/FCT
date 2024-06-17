@@ -1,0 +1,28 @@
+RESUME: True
+MODEL:
+  WEIGHTS: "./weights/pvt_v2_b2_li.pth"
+  MASK_ON: False
+  BACKBONE:
+    NAME: "build_retinanet_pvtv2_fpn_backbone"
+  PVT:
+    OUT_FEATURES: ["pvt3", "pvt4"]
+  FPN:
+    IN_FEATURES: ['pvt3', 'pvt4']
+  ROI_HEADS:
+    IN_FEATURES: ["p5", "p6"]
+  RPN:
+    IN_FEATURES: ["p5", "p6"]
+    HEAD_NAME: "StandardRPNHead"
+  ROI_BOX_HEAD:
+    NAME: "PVT4BoxHead"
+SOLVER:
+  IMS_PER_BATCH: 8
+  BASE_LR: 0.0002
+  STEPS: (85000, 100000)
+  MAX_ITER: 110000
+  CHECKPOINT_PERIOD: 20000
+  ACCUMULATION_STEPS: 1
+TEST:
+  EVAL_PERIOD: 20000
+VERSION: 2
+

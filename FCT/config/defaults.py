@@ -238,8 +238,8 @@ _C.MODEL.RPN.SMOOTH_L1_BETA = 0.0
 _C.MODEL.RPN.LOSS_WEIGHT = 1.0
 # Number of top scoring RPN proposals to keep before applying NMS
 # When FPN is used, this is *per FPN level* (not total)
-_C.MODEL.RPN.PRE_NMS_TOPK_TRAIN = 12000
-_C.MODEL.RPN.PRE_NMS_TOPK_TEST = 6000
+_C.MODEL.RPN.PRE_NMS_TOPK_TRAIN = 6000 # 12000
+_C.MODEL.RPN.PRE_NMS_TOPK_TEST = 1000 # 6000
 # Number of top scoring RPN proposals to keep after applying NMS
 # When FPN is used, this limit is applied per level and then again to the union
 # of proposals from all levels
@@ -657,7 +657,7 @@ _C.TEST.PRECISE_BN.NUM_ITER = 200
 # Misc options
 # ---------------------------------------------------------------------------- #
 # Directory where output files are written
-_C.OUTPUT_DIR = "./output"
+_C.OUTPUT_DIR = ""
 # Set seed to negative to fully randomize everything.
 # Set seed to positive to use a fixed seed. Note that a fixed seed increases
 # reproducibility but does not guarantee fully deterministic behavior.
@@ -693,6 +693,9 @@ _C.SOLVER.SOLVER_TYPE = "adamw"
 # Few shot setting
 # ---------------------------------------------------------------------------- #
 _C.INPUT.FS = CN()
+# Whether to enable two-branch 'few-shot' setting
+_C.INPUT.FS.ENABLED = False
+# Whether to enable the actual few-shot examples setting
 _C.INPUT.FS.FEW_SHOT = False
 _C.INPUT.FS.SUPPORT_WAY = 2
 _C.INPUT.FS.SUPPORT_SHOT = 10

@@ -1,0 +1,16 @@
+MODEL:
+  PIXEL_MEAN: [103.530, 116.280, 123.675]
+  PIXEL_STD: [57.375, 57.120, 58.395]
+  ROI_HEADS:
+    NUM_CLASSES: 20
+DATASETS:
+  TRAIN: ("dior_2014_train_nonvoc_with_small",)
+  TEST: ("dior_2014_val2",) #("dior_2014_val",)
+  TEST_KEEPCLASSES: 'all'
+INPUT:
+  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+  MAX_SIZE_TRAIN: 1333
+  MIN_SIZE_TEST: 800
+  MAX_SIZE_TEST: 1333
+DATA_DIR: "./datasets/data/dota_dataset"
+VERSION: 2

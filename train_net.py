@@ -10,16 +10,20 @@ This script is a simplified version of the training script in detectron2/tools.
 """
 
 import os
+import argparse
+import logging
+from collections import OrderedDict
+
+import torch.utils.data
 
 from detectron2.checkpoint import DetectionCheckpointer
-from detectron2.config import get_cfg
 from detectron2.engine import DefaultTrainer, default_argument_parser, default_setup, launch
-from detectron2.data import build_batch_data_loader
+from detectron2.utils import comm
+from detectron2.utils.logger import setup_logger
 from detectron2.evaluation import (
     DatasetEvaluator,
     inference_on_dataset,
     print_csv_format,
-    verify_results,
 )
 
 from FCT.config import get_cfg
@@ -28,21 +32,35 @@ from FCT.data.build import build_detection_train_loader, build_detection_test_lo
 from FCT.solver import build_optimizer
 from FCT.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator,DIOREvaluator, DOTAEvaluator, PASCALEvaluator
 
-import bisect
-import copy
-import itertools
-import logging
-import numpy as np
-import operator
-import pickle
-import torch.utils.data
-from collections import OrderedDict
 
-import detectron2.utils.comm as comm
-from detectron2.utils.logger import setup_logger
+
 
 class Trainer(DefaultTrainer):
+    @classmethod
+    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
+        if output_folder is None:
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+        if 'pascalvoc' in dataset_name:
+            return PascalVOCDetectionEvaluator(dataset_name)
+        elif 'coco' in dataset_name:
+            return COCOEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'dota' in dataset_name:
+            return DOTAEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'dior' in dataset_name:
+            return DIOREvaluator(dataset_name, cfg, True, output_folder)
 
+
+    @classmethod
+    def build_optimizer(cls, cfg, model):
+        """
+        Returns:
+            torch.optim.Optimizer:
+        It now calls :func:`detectron2.solver.build_optimizer`.
+        Overwrite it if you'd like a different optimizer.
+        """
+        return build_optimizer(cfg, model)
+
+class FsodTrainer(Trainer):
     @classmethod
     def build_train_loader(cls, cfg):
         """
@@ -56,7 +74,7 @@ class Trainer(DefaultTrainer):
         else:
             mapper = DatasetMapperWithSupportCOCO(cfg)
         return build_detection_train_loader(cfg, mapper)
-
+    
     @classmethod
     def build_test_loader(cls, cfg, dataset_name):
         """
@@ -66,33 +84,7 @@ class Trainer(DefaultTrainer):
         Overwrite it if you'd like a different data loader.
         """
         return build_detection_test_loader(cfg, dataset_name)
-
-    @classmethod
-    def build_optimizer(cls, cfg, model):
-        """
-        Returns:
-            torch.optim.Optimizer:
-        It now calls :func:`detectron2.solver.build_optimizer`.
-        Overwrite it if you'd like a different optimizer.
-        """
-        return build_optimizer(cfg, model)
-
-    @classmethod
-    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
-        if output_folder is None:
-            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
-        if 'pascalvoc' in dataset_name:
-            return PascalVOCDetectionEvaluator(dataset_name)
-        elif 'coco' in dataset_name:
-            return COCOEvaluator(dataset_name, cfg, True, output_folder)
-        elif 'dota' in dataset_name:
-            return DOTAEvaluator(dataset_name, cfg, True, output_folder)
-        elif 'dior' in dataset_name:
-            return DIOREvaluator(dataset_name, cfg, True, output_folder)
-        elif 'pascal' in dataset_name:
-            return PASCALEvaluator(dataset_name, cfg, True, output_folder)
-        
-
+    
     @classmethod
     def test(cls, cfg, model, evaluators=None):
         """
@@ -125,7 +117,7 @@ class Trainer(DefaultTrainer):
                 try:
                     evaluator = cls.build_evaluator(cfg, dataset_name)
                 except NotImplementedError:
-                    logger.warn(
+                    logger.warning(
                         "No evaluator found. Use `DefaultTrainer.test(evaluators=)`, "
                         "or implement its `build_evaluator` method."
                     )
@@ -172,8 +164,8 @@ class Trainer(DefaultTrainer):
         if len(results) == 1:
             results = list(results.values())[0]
         return results
-
-
+    
+    
 def setup(args):
     """
     Create configs and perform basic setups.
@@ -181,7 +173,19 @@ def setup(args):
     cfg = get_cfg()
     cfg.set_new_allowed(True)
     cfg.merge_from_file(args.config_file)
-    cfg.merge_from_list(args.opts)
+    if args.additional_configs:
+        for additional_cfg_path in args.additional_configs:
+            cfg.merge_from_file(additional_cfg_path)
+    
+    if args.opts:
+        if args.opts[0] == '--':
+            args.opts = args.opts[1:]  # Remove the '--' delimiter
+        cfg.merge_from_list(args.opts)
+    
+    check_fewshot(cfg)
+    update_output_dir(cfg)
+    update_weights(cfg)
+
     cfg.freeze()
     default_setup(cfg, args)
 
@@ -190,25 +194,74 @@ def setup(args):
 
     return cfg
 
+def check_fewshot(cfg):
+    if cfg.INPUT.FS.FEW_SHOT:
+        assert cfg.INPUT.FS.ENABLED, "Few-shot learning requires enabling few-shot setting"
+
+    if cfg.INPUT.FS.ENABLED:
+        assert cfg.INPUT.FS.SUPPORT_SHOT > 0, "SUPPORT_SHOT should be larger than 0"
+        assert cfg.INPUT.FS.QUERY_SHOT > 0, "QUERY_SHOT should be larger than 0"
+    
+    
+
+def update_output_dir(cfg):
+    if cfg.OUTPUT_DIR:
+        return
+    
+    dataset_name = cfg.DATASETS.TRAIN[0].split("_")[0]  # Using the first dataset in the TRAIN list
+    backbone_type = cfg.MODEL.BACKBONE.NAME
+    if not cfg.INPUT.FS.ENABLED:
+        training_phase = 'pretraining'
+    elif not cfg.INPUT.FS.FEW_SHOT:
+        training_phase = 'training'
+    else:
+        k = cfg.INPUT.FS.SUPPORT_SHOT
+        training_phase = f'fewshot_{k}shot'
+    output_dir = f"./output/{dataset_name}/{backbone_type}/{training_phase}/"
+    cfg.OUTPUT_DIR = output_dir
+
+def update_weights(cfg):
+    if cfg.INPUT.FS.FEW_SHOT:
+        training_dir = os.path.join(cfg.OUTPUT_DIR, "training")
+    elif cfg.INPUT.FS.ENABLED:
+        training_dir = os.path.join(cfg.OUTPUT_DIR, "pretraining")
+    else:
+        return
+
+    cfg.MODEL.WEIGHTS = os.path.join(training_dir, "model_final.pth")
+
 
 def main(args):
     cfg = setup(args)
 
+    if cfg.INPUT.FS.ENABLED:
+        trainer = FsodTrainer
+    else:
+        trainer = Trainer
+
     if args.eval_only:
-        model = Trainer.build_model(cfg)
+        model = trainer.build_model(cfg)
         DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
             cfg.MODEL.WEIGHTS, resume=args.resume
         )
-        res = Trainer.test(cfg, model)
+        res = trainer.test(cfg, model)
         return res
 
-    trainer = Trainer(cfg)
+    trainer = trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
     return trainer.train()
 
+def get_custom_argument_parser():
+    parser = default_argument_parser()
+    parser.add_argument(
+        "--additional-configs",
+        nargs='+',  # This allows you to pass multiple paths
+        help="List of additional config file paths to merge"
+    )
+    return parser
 
 if __name__ == "__main__":
-    args = default_argument_parser().parse_args()
+    args = get_custom_argument_parser().parse_args()
     print("Command Line Args:", args)
     launch(
         main,

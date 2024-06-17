@@ -1,0 +1,3 @@
+__BASE__: "pretraining-dota.yaml"
+DATASETS:
+  TRAIN: ("dota_2014_train_full_10_shot",)
