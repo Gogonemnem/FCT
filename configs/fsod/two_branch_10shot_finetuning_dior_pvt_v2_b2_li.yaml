@@ -5,12 +5,9 @@ MODEL:
   PIXEL_STD: [57.375, 57.120, 58.395]
   WEIGHTS: "./output/dior/fsod/two_branch_training_dior_pvt_v2_b2_li/model_final.pth"
   MASK_ON: False
-  RESNETS:
-    DEPTH: 101
   BACKBONE:
-    FREEZE_AT: 4
-    NAME: "build_FCT_backbone"
-    TYPE: "pvt_v2_b2_li"
+    FREEZE_AT: 5
+    NAME: "build_retinanet_fsod_pvtv2_fpn_backbone"
     TRAIN_BRANCH_EMBED: False
   ROI_HEADS:
     SCORE_THRESH_TEST: 0.0

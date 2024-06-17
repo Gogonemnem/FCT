@@ -7,15 +7,13 @@ MODEL:
   RESNETS:
     DEPTH: 101
   BACKBONE:
-    FREEZE_AT: 1
-    NAME: "build_PVT_backbone"
-    TYPE: "pvt_v2_b2_li"
+    NAME: "build_retinanet_pvtv2_fpn_backbone"
   META_ARCHITECTURE: "GeneralizedRCNN"
   RPN:
     PRE_NMS_TOPK_TEST: 6000
     POST_NMS_TOPK_TEST: 1000
   ROI_HEADS:
-    NAME: "PVTROIHeads"
+    NUM_CLASSES: 20
 DATASETS:
   TRAIN: ("dior_2014_train_nonvoc_with_small",)
   TEST: ("dior_2014_val2",) #("dior_2014_val",)

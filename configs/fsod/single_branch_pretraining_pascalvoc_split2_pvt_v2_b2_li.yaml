@@ -14,7 +14,7 @@ MODEL:
     PRE_NMS_TOPK_TEST: 6000
     POST_NMS_TOPK_TEST: 1000
   ROI_HEADS:
-    NAME: "PVTROIHeads"
+    NAME: "StandardROIHeads"
 DATASETS:
   TRAIN: ("voc_2007_trainval_base2", "voc_2012_trainval_base2")
   TEST: ("voc_2007_test_all2",)

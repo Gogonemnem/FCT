@@ -15,7 +15,7 @@ MODEL:
     PRE_NMS_TOPK_TEST: 6000
     POST_NMS_TOPK_TEST: 1000
   ROI_HEADS:
-    NAME: "PVTROIHeads"
+    NAME: "StandardROIHeads"
 DATASETS:
   TRAIN: ("dota_2014_train_nonvoc_with_small",)
   TEST: ("dota_2014_val2",) #("coco_2014_val",)
