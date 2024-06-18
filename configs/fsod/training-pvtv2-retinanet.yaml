@@ -1,8 +1,9 @@
-__BASE__: "pretraining-pvtv2-retinanet.yaml"
+_BASE_: "pretraining-pvtv2-retinanet.yaml"
 MODEL:
   META_ARCHITECTURE: "FsodRCNN"
   BACKBONE: 
     NAME: "build_retinanet_fsod_pvtv2_fpn_backbone"
+    FREEZE_AT: 3
   PROPOSAL_GENERATOR:
     NAME: "FsodRPN"  
   RPN:
@@ -15,12 +16,8 @@ MODEL:
     SCORE_THRESH_TEST: 0.0
   ROI_BOX_HEAD:
     NAME: "FsodPVT4BoxHead"
-  BACKBONE:
-    FREEZE_AT: 3
 DATALOADER:
   NUM_WORKERS: 8
-DATASETS:
-  TEST_SHOTS: (10,) #(1,2,3,5,10,30)
 SOLVER:
   IMS_PER_BATCH: 8
   BASE_LR: 0.0002

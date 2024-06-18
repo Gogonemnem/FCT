@@ -132,6 +132,7 @@ class FsodPyramidVisionTransformerStage(PyramidVisionTransformerStage):
             self,
             dim_out: int,
             depth: int,
+            branch_embed: bool = True,
             num_heads: int = 8,
             sr_ratio: int = 1,
             linear_attn: bool = False,
@@ -169,12 +170,26 @@ class FsodPyramidVisionTransformerStage(PyramidVisionTransformerStage):
             drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
             norm_layer=norm_layer,
         ) for i in range(depth)])
+        
+        if branch_embed:
+            num_branches = 2
+            self.branch_embedding = nn.Embedding(num_branches, dim_out)
+        self.branch_embed = branch_embed
+
 
     def forward(self, x, y):
         if self.downsample is not None:
             # input to downsample is B, C, H, W
             x = self.downsample(x)  # output B, H, W, C
             y = self.downsample(y)
+
+        if self.branch_embed:
+            x_branch_embed = torch.zeros(x.shape[:-1], dtype=torch.long, device=x.device)
+            x = x + self.branch_embedding(x_branch_embed)
+
+            y_branch_embed = torch.ones(y.shape[:-1], dtype=torch.long, device=y.device)
+            y = y + self.branch_embedding(y_branch_embed)
+
         Bq, Hq, Wq, Cq = x.shape
         Bs, Hs, Ws, Cs = y.shape
         feat_size_query = (Hq, Wq)
@@ -212,6 +227,7 @@ class FsodPyramidVisionTransformerV2(PyramidVisionTransformerV2):
             norm_layer="LayerNorm",
             freeze_at=0,
             only_train_norm=False,
+            branch_embed=(True, True, True, True),
             **kwargs,
             
     ):
@@ -246,6 +262,7 @@ class FsodPyramidVisionTransformerV2(PyramidVisionTransformerV2):
                 dim=prev_dim,
                 dim_out=embed_dims[i],
                 depth=depths[i],
+                branch_embed=branch_embed[i],
                 downsample=i > 0,
                 num_heads=num_heads[i],
                 sr_ratio=sr_ratios[i],
@@ -260,6 +277,12 @@ class FsodPyramidVisionTransformerV2(PyramidVisionTransformerV2):
             self.stages.append(stage)
             prev_dim = embed_dims[i]
         self._freeze_stages(freeze_at, only_train_norm)
+    
+    @classmethod
+    def from_config(cls, cfg, input_shape):
+        ret = super().from_config(cfg, input_shape)
+        ret["branch_embed"] = cfg.MODEL.BACKBONE.TRAIN_BRANCH_EMBED
+        return ret
 
     def forward(self, x, y):
         """
@@ -289,4 +312,17 @@ class FsodPyramidVisionTransformerV2(PyramidVisionTransformerV2):
             if "linear" in self._out_features:
                 outputs_query["linear"] = self.forward_head(x)
         return outputs_query, outputs_support
+    
+    def _freeze_stages(self, freeze_at=0, only_train_norm=False):    
+        super()._freeze_stages(freeze_at, only_train_norm)    
+        module_names = ["branch_embedding"]
+        for idx, stage in enumerate(self.stages, start=2):
+            if freeze_at >= idx:
+                for module_name in module_names:
+                    module = getattr(stage, module_name, None)
+                    if module is None:
+                        continue
+
+                    for param in module.parameters():
+                        param.requires_grad = False
 

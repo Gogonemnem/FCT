@@ -10,7 +10,6 @@ This script is a simplified version of the training script in detectron2/tools.
 """
 
 import os
-import argparse
 import logging
 from collections import OrderedDict
 
@@ -176,6 +175,10 @@ def setup(args):
     if args.additional_configs:
         for additional_cfg_path in args.additional_configs:
             cfg.merge_from_file(additional_cfg_path)
+
+            # loaded_cfg = cfg.load_yaml_with_base(additional_cfg_path)
+            # loaded_cfg = type(cfg)(loaded_cfg)
+            # cfg.merge_from_other_cfg(loaded_cfg)
     
     if args.opts:
         if args.opts[0] == '--':
@@ -200,7 +203,7 @@ def check_fewshot(cfg):
 
     if cfg.INPUT.FS.ENABLED:
         assert cfg.INPUT.FS.SUPPORT_SHOT > 0, "SUPPORT_SHOT should be larger than 0"
-        assert cfg.INPUT.FS.QUERY_SHOT > 0, "QUERY_SHOT should be larger than 0"
+        assert cfg.INPUT.FS.SUPPORT_WAY > 0, "SUPPORT_WAY should be larger than 0"
     
     
 
@@ -228,6 +231,10 @@ def update_weights(cfg):
     else:
         return
 
+    weights_file = os.path.join(training_dir, "model_final.pth")
+    if not os.path.exists(weights_file):
+        return
+    
     cfg.MODEL.WEIGHTS = os.path.join(training_dir, "model_final.pth")
 
 

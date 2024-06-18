@@ -11,7 +11,7 @@ import torch
 from detectron2.config import CfgNode
 
 from detectron2.solver.lr_scheduler import WarmupCosineLR, WarmupMultiStepLR
-from .accumulator import GradientAccumulatorWrapper
+from .accumulator import GradientAccumulator
 
 _GradientClipperInput = Union[torch.Tensor, Iterable[torch.Tensor]]
 _GradientClipper = Callable[[_GradientClipperInput], None]
@@ -165,7 +165,7 @@ def build_optimizer(cfg: CfgNode, model: torch.nn.Module) -> torch.optim.Optimiz
         optimizer = maybe_add_gradient_clipping(cfg, optimizer)
 
     if cfg.SOLVER.ACCUMULATION_STEPS > 1:
-        optimizer = GradientAccumulatorWrapper(optimizer, cfg.SOLVER.ACCUMULATION_STEPS)
+        optimizer = GradientAccumulator(optimizer, cfg.SOLVER.ACCUMULATION_STEPS)
     return optimizer
 
 

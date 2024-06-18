@@ -8,7 +8,7 @@ MODEL:
   BACKBONE:
     FREEZE_AT: 5
     NAME: "build_retinanet_fsod_pvtv2_fpn_backbone"
-    TRAIN_BRANCH_EMBED: False
+    TRAIN_BRANCH_EMBED: (False, False, False, False)
   ROI_HEADS:
     SCORE_THRESH_TEST: 0.0
   RPN:

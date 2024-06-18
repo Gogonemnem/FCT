@@ -1,3 +1,0 @@
-__BASE__: "pretraining-dior.yaml"
-DATASETS:
-  TRAIN: ("dior_2014_train_full_1_shot",)

@@ -1,3 +1,0 @@
-__BASE__: "pretraining-coco.yaml"
-DATASETS:
-  TRAIN: ("coco_2014_train_full_10_shot",)

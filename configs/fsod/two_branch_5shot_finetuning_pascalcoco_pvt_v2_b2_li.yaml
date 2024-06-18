@@ -11,7 +11,7 @@ MODEL:
     FREEZE_AT: 4
     NAME: "build_FCT_backbone"
     TYPE: "pvt_v2_b2_li"
-    TRAIN_BRANCH_EMBED: False
+    TRAIN_BRANCH_EMBED: (False, False, False, False)
   ROI_HEADS:
     SCORE_THRESH_TEST: 0.0
   RPN:
