@@ -3,12 +3,24 @@ from typing import Dict, List, Optional, Tuple
 import torch
 from torch.nn import functional as F
 
+from detectron2.config import configurable
 from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGISTRY
 from detectron2.modeling.proposal_generator.rpn import RPN
 from detectron2.modeling.poolers import ROIPooler
 from detectron2.structures import Boxes, ImageList, Instances
 @PROPOSAL_GENERATOR_REGISTRY.register()
 class FsodRPN(RPN):
+    @configurable
+    def __init__(
+            self,
+            *,
+            per_level_roi_poolers,
+            **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self.per_level_roi_poolers = per_level_roi_poolers
+
     @classmethod
     def from_config(cls, cfg, input_shape):
         ret = super().from_config(cfg, input_shape)
