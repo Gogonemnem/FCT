@@ -9,7 +9,7 @@ import torch.utils.checkpoint as checkpoint
 from detectron2.config import configurable
 from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
 
-from timm.models.pvt_v2 import Attention, Block, PyramidVisionTransformerStage
+from .pvt_v2 import Attention, Block, PyramidVisionTransformerStage
 from timm.layers import to_ntuple, LayerNorm
 
 from .pvt_v2 import PyramidVisionTransformerV2, get_norm
@@ -40,16 +40,16 @@ class CrossAttention(Attention):
             H, W = feat_size
 
             if self.pool is not None:
-                x = x.permute(0, 2, 1).reshape(B, C, H, W)
+                x = x.permute(0, 2, 1).reshape(B, C, H, W).contiguous()
                 x = self.sr(self.pool(x)).reshape(B, C, -1).permute(0, 2, 1)
                 x = self.norm(x)
                 x = self.act(x)
             elif self.sr is not None:
-                x = x.permute(0, 2, 1).reshape(B, C, H, W)
+                x = x.permute(0, 2, 1).reshape(B, C, H, W).contiguous()
                 x = self.sr(x).reshape(B, C, -1).permute(0, 2, 1)
                 x = self.norm(x)
             
-            kv = self.kv(x).reshape(B, -1, 2, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+            kv = self.kv(x).reshape(B, -1, 2, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4).contiguous()
             ks.append(kv[0])
             vs.append(kv[1])
         

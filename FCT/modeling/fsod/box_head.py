@@ -5,7 +5,7 @@ from torch import nn
 from detectron2.config import configurable
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.roi_heads.box_head import ROI_BOX_HEAD_REGISTRY
-from timm.models.pvt_v2 import PyramidVisionTransformerStage
+from .pvt_v2 import PyramidVisionTransformerStage
 
 from .pvt_v2 import get_norm
 from functools import partial

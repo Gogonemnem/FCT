@@ -1,5 +1,5 @@
 _BASE_: "pascalvoc.yaml"
 DATASETS:
-  TRAIN: ("voc_2007_trainval_base3", "voc_2012_trainval_base3")
+  TRAIN: ("voc_2007_trainval_base3", "voc_2012_trainval_base3") # Finetuning: ("voc_2007_trainval_all3_kshot",)
   TEST: ("voc_2007_test_all3",)
   TEST_KEEPCLASSES: 'all3'

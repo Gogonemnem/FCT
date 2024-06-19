@@ -9,9 +9,9 @@ MODEL:
   FPN:
     IN_FEATURES: ['pvt3', 'pvt4']
   ROI_HEADS:
-    IN_FEATURES: ["p5", "p6"]
+    IN_FEATURES: ["p3", "p4", "p5", "p6"]
   RPN:
-    IN_FEATURES: ["p5", "p6"]
+    IN_FEATURES: ["p3", "p4", "p5", "p6"]
     HEAD_NAME: "StandardRPNHead"
   ROI_BOX_HEAD:
     NAME: "PVT4BoxHead"
@@ -20,7 +20,7 @@ SOLVER:
   BASE_LR: 0.0002
   STEPS: (85000, 100000)
   MAX_ITER: 110000
-  CHECKPOINT_PERIOD: 20000
+  CHECKPOINT_PERIOD: 5000
   ACCUMULATION_STEPS: 1
 TEST:
   EVAL_PERIOD: 20000

@@ -228,12 +228,9 @@ class FsodRCNN(GeneralizedRCNN):
 
                 support_boxes = batched_inputs[i]['support_bboxes'][way*self.support_shot:(way+1)*self.support_shot]
                 support_boxes = [Boxes(box[np.newaxis, :]).to(self.device) for box in support_boxes]
-                support_box_features = self.roi_heads.per_level_roi_pooling(support_features, support_boxes)
-                support_box_features = {k: v.mean(dim=[0, 2, 3], keepdim=True) for k, v in support_box_features.items()}
 
-                rpn_features = {key: F.conv2d(query_features[key], support_box_features[key].permute(1,0,2,3), groups=query_features[key].shape[1]) for key in support_box_features.keys()} # attention map for attention-style rpn
-                proposals, prop_losses = self.proposal_generator(query_images, rpn_features, query_gt_instances) # standard rpn
-                
+                proposals, prop_losses = self.proposal_generator(query_images, query_features, support_features, support_boxes, query_gt_instances)
+
                 if proposal_losses is None:
                     proposal_losses = prop_losses
                 else:
@@ -244,7 +241,6 @@ class FsodRCNN(GeneralizedRCNN):
                 support_features_dict[way] = support_features
                 query_features_dict[way] = query_features
                 support_boxes_dict[way] = support_boxes
-                del rpn_features
 
             _, det_losses = self.roi_heads(query_images, query_features_dict, support_proposals_dict, support_features_dict, support_boxes_dict, query_gt_instances) # rcnn
             
@@ -304,17 +300,11 @@ class FsodRCNN(GeneralizedRCNN):
                 query_features, support_features = self.backbone(query_images.tensor, support_images.tensor)
 
                 support_boxes = self.support_dict['box'][cls_id]
-                support_box_features = self.roi_heads.per_level_roi_pooling(support_features, support_boxes)
-                support_box_features = {k: v.mean(dim=[0, 2, 3], keepdim=True) for k, v in support_box_features.items()}
-
-                rpn_features = {key: F.conv2d(query_features[key], support_box_features[key].permute(1,0,2,3), groups=query_features[key].shape[1]) for key in support_box_features.keys()} # attention map for attention-style rpn
-                proposals, _ = self.proposal_generator(query_images, rpn_features, None) # standard rpn
+                proposals, _ = self.proposal_generator(query_images, query_features, support_features, support_boxes, None)
 
                 support_proposals_dict[cls_id] = proposals
                 support_features_dict[cls_id] = support_features
                 query_features_dict[cls_id] = query_features
-
-                del rpn_features
 
         results, _ = self.roi_heads(query_images, query_features_dict, support_proposals_dict, support_features_dict, self.support_dict['box']) # rcnn
         if do_postprocess:
