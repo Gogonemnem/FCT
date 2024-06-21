@@ -249,7 +249,8 @@ class FsodRCNN(GeneralizedRCNN):
             else:
                 # detector loss, reduction is mean, thus taking the sum is justified if divided by B(atch size)
                 detector_losses = {k: v + det_losses[k] for k, v in detector_losses.items()}
-        proposal_losses = {k: v / B for k, v in proposal_losses.items()}
+        
+        proposal_losses = {k: v / (B * self.support_way) for k, v in proposal_losses.items()}
         detector_losses = {k: v / B for k, v in detector_losses.items()}
             
         losses = {}

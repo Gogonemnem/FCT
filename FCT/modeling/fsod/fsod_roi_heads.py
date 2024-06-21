@@ -75,17 +75,16 @@ class FsodRes5ROIHeads(Res5ROIHeads):
             
         class_logits = torch.cat(full_scores_ls, dim=0)
         proposal_deltas = torch.cat(full_bboxes_ls, dim=0)
-            
-        # detector loss
-        proposals = [Instances.cat(full_proposals_ls)]
-        
         predictions = class_logits, proposal_deltas
+        proposals = [Instances.cat(full_proposals_ls)]
+
+        num_classes = len(support_proposals_dict)
 
         if self.training:
             losses = self.box_predictor.losses(predictions, proposals)
+            losses = {k: v / num_classes for k, v in losses.items()}
             return [], losses
         
-        num_classes = len(support_proposals_dict)
         pred_instances, _ = self.box_predictor.inference(num_classes, predictions, proposals)
         pred_instances = self.forward_with_given_boxes(query_features_dict, pred_instances)
         return pred_instances, {}
