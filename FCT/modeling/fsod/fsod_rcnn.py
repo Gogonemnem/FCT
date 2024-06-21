@@ -234,7 +234,7 @@ class FsodRCNN(GeneralizedRCNN):
                 if proposal_losses is None:
                     proposal_losses = prop_losses
                 else:
-                    # rpn loss, reduction is sum, thus taking the sum is justified
+                    # rpn loss, reduction is sum, thus taking the sum is justified (but apparently it is still the mean...)
                     proposal_losses = {k: v + prop_losses[k] for k, v in proposal_losses.items()}
 
                 support_proposals_dict[way] = proposals
@@ -247,8 +247,9 @@ class FsodRCNN(GeneralizedRCNN):
             if detector_losses is None:
                 detector_losses = det_losses
             else:
-                # rpn loss, reduction is mean, thus taking the sum is justified if divided by B(atch size)
+                # detector loss, reduction is mean, thus taking the sum is justified if divided by B(atch size)
                 detector_losses = {k: v + det_losses[k] for k, v in detector_losses.items()}
+        proposal_losses = {k: v / B for k, v in proposal_losses.items()}
         detector_losses = {k: v / B for k, v in detector_losses.items()}
             
         losses = {}
