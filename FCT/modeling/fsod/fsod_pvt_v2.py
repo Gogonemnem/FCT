@@ -247,7 +247,7 @@ class FsodPyramidVisionTransformerV2(PyramidVisionTransformerV2):
             only_train_norm=only_train_norm,
             **kwargs,
         )
-        num_stages = len(depths)
+        num_stages = len(self.stages)
         mlp_ratios = to_ntuple(num_stages)(mlp_ratios)
         num_heads = to_ntuple(num_stages)(num_heads)
         sr_ratios = to_ntuple(num_stages)(sr_ratios)
@@ -313,8 +313,8 @@ class FsodPyramidVisionTransformerV2(PyramidVisionTransformerV2):
                 outputs_query["linear"] = self.forward_head(x)
         return outputs_query, outputs_support
     
-    def _freeze_stages(self, freeze_at=0, only_train_norm=False):    
-        super()._freeze_stages(freeze_at, only_train_norm)    
+    def _freeze_stages(self, freeze_at=0, only_train_norm=False):
+        super()._freeze_stages(freeze_at, only_train_norm)
         module_names = ["branch_embedding"]
         for idx, stage in enumerate(self.stages, start=2):
             if freeze_at >= idx:
