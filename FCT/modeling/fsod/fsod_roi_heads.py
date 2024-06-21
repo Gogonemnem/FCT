@@ -1,93 +1,12 @@
 from typing import Dict, List, Optional, Tuple
 import torch
 from detectron2.config import configurable
-from detectron2.layers import ShapeSpec
 from detectron2.structures import Boxes, ImageList, Instances
-from detectron2.modeling.roi_heads.roi_heads import ROI_HEADS_REGISTRY, Res5ROIHeads, StandardROIHeads
+from detectron2.modeling.roi_heads.roi_heads import ROI_HEADS_REGISTRY, StandardROIHeads
 from detectron2.modeling.poolers import ROIPooler
 
 from .fsod_fast_rcnn import FsodFastRCNNOutputLayers
 
-
-@ROI_HEADS_REGISTRY.register()
-class FsodRes5ROIHeads(Res5ROIHeads):
-    """
-    The ROIHeads in a typical "C4" R-CNN model, where
-    the box and mask head share the cropping and
-    the per-region feature computation by a Res5 block.
-    """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        ret = super().from_config(cfg, input_shape)
-        ret["res5"], out_channels = super(FsodRes5ROIHeads, cls)._build_res5_block(cfg)
-        ret["box_predictor"] = FsodFastRCNNOutputLayers(
-            cfg, ShapeSpec(channels=out_channels, height=1, width=1)
-        )
-        return ret
-
-
-    def roi_pooling(self, features, boxes):
-        box_features = self.pooler(
-            [features[f] for f in self.in_features], boxes
-        )
-        return box_features
-
-    # features, support_box_features, proposals
-    def forward(self, images, query_features_dict, support_proposals_dict, support_box_features_dict, targets=None):
-        """
-        See :meth:`ROIHeads.forward`.
-        """
-        del images
-
-        cnt = 0
-        full_proposals_ls = []
-        full_scores_ls = []
-        full_bboxes_ls = []
-
-        for cls_id, proposals in support_proposals_dict.items():
-            if self.training:
-                assert targets
-                proposals = self.label_and_sample_proposals(proposals, targets)
-            
-            proposal_boxes = [x.proposal_boxes for x in proposals]
-            box_features = self.roi_pooling(query_features_dict[cls_id], proposal_boxes)
-
-            support_box_features = support_box_features_dict[cls_id].mean(0, True)
-            box_features, support_box_features = self._shared_roi_transform_mutual(box_features, support_box_features)
-
-            class_logits, proposal_deltas = self.box_predictor(box_features, support_box_features)
-            
-            if self.training and cnt > 0:
-                for item in proposals:
-                    item.gt_classes = torch.full_like(item.gt_classes, 1)
-                
-            full_proposals_ls.extend(proposals)
-            full_scores_ls.append(class_logits)
-            full_bboxes_ls.append(proposal_deltas)
-            
-            cnt += 1
-            del box_features
-            del support_box_features
-        del targets
-            
-        class_logits = torch.cat(full_scores_ls, dim=0)
-        proposal_deltas = torch.cat(full_bboxes_ls, dim=0)
-        predictions = class_logits, proposal_deltas
-        proposals = [Instances.cat(full_proposals_ls)]
-
-        num_classes = len(support_proposals_dict)
-
-        if self.training:
-            losses = self.box_predictor.losses(predictions, proposals)
-            losses = {k: v / num_classes for k, v in losses.items()}
-            return [], losses
-        
-        pred_instances, _ = self.box_predictor.inference(num_classes, predictions, proposals)
-        pred_instances = self.forward_with_given_boxes(query_features_dict, pred_instances)
-        return pred_instances, {}
 
 @ROI_HEADS_REGISTRY.register()
 class FsodStandardROIHeads(StandardROIHeads):
