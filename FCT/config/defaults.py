@@ -1,3 +1,4 @@
+
 """
 Created on Wednesday, September 28, 2022
 
@@ -139,7 +140,7 @@ _C.DATALOADER.FILTER_EMPTY_ANNOTATIONS = True
 # ---------------------------------------------------------------------------- #
 _C.MODEL.BACKBONE = CN()
 
-_C.MODEL.BACKBONE.NAME = "build_resnet_backbone"
+_C.MODEL.BACKBONE.NAME = "PyramidVisionTransformerV2"
 # Freeze the first several stages so they are not trained.
 # There are 5 stages in ResNet. The first is a convolution, and the following
 # stages are each group of residual blocks.
@@ -153,7 +154,7 @@ _C.MODEL.FPN = CN()
 # Names of the input feature maps to be used by FPN
 # They must have contiguous power of 2 strides
 # e.g., ["res2", "res3", "res4", "res5"]
-_C.MODEL.FPN.IN_FEATURES = []
+_C.MODEL.FPN.IN_FEATURES = ['pvt3', 'pvt4']
 _C.MODEL.FPN.OUT_CHANNELS = 256
 
 # Options: "" (no norm), "GN"
@@ -209,7 +210,7 @@ _C.MODEL.RPN.HEAD_NAME = "StandardRPNHead"  # used by RPN_HEAD_REGISTRY
 
 # Names of the input feature maps to be used by RPN
 # e.g., ["p2", "p3", "p4", "p5", "p6"] for FPN
-_C.MODEL.RPN.IN_FEATURES = ["res4"]
+_C.MODEL.RPN.IN_FEATURES = ["pvt4"]
 # Remove RPN anchors that go outside the image by BOUNDARY_THRESH pixels
 # Set to -1 or a large value, e.g. 100000, to disable pruning anchors
 _C.MODEL.RPN.BOUNDARY_THRESH = -1
@@ -238,8 +239,8 @@ _C.MODEL.RPN.SMOOTH_L1_BETA = 0.0
 _C.MODEL.RPN.LOSS_WEIGHT = 1.0
 # Number of top scoring RPN proposals to keep before applying NMS
 # When FPN is used, this is *per FPN level* (not total)
-_C.MODEL.RPN.PRE_NMS_TOPK_TRAIN = 12000
-_C.MODEL.RPN.PRE_NMS_TOPK_TEST = 6000
+_C.MODEL.RPN.PRE_NMS_TOPK_TRAIN = 6000 # 12000
+_C.MODEL.RPN.PRE_NMS_TOPK_TEST = 1000 # 6000
 # Number of top scoring RPN proposals to keep after applying NMS
 # When FPN is used, this limit is applied per level and then again to the union
 # of proposals from all levels
@@ -257,13 +258,13 @@ _C.MODEL.RPN.CONV_DIMS = [-1]
 # ROI HEADS options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.ROI_HEADS = CN()
-_C.MODEL.ROI_HEADS.NAME = "Res5ROIHeads"
+_C.MODEL.ROI_HEADS.NAME = "StandardROIHeads"
 # Number of foreground classes
 _C.MODEL.ROI_HEADS.NUM_CLASSES = 80
 # Names of the input feature maps to be used by ROI heads
 # Currently all heads (box, mask, ...) use the same input feature map list
 # e.g., ["p2", "p3", "p4", "p5"] is commonly used for FPN
-_C.MODEL.ROI_HEADS.IN_FEATURES = ["res4"]
+_C.MODEL.ROI_HEADS.IN_FEATURES = ["pvt4"]
 # IOU overlap ratios [IOU_THRESHOLD]
 # Overlap threshold for an RoI to be considered background (if < IOU_THRESHOLD)
 # Overlap threshold for an RoI to be considered foreground (if >= IOU_THRESHOLD)
@@ -297,8 +298,8 @@ _C.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = True
 # ---------------------------------------------------------------------------- #
 _C.MODEL.ROI_BOX_HEAD = CN()
 # C4 don't use head name option
-# Options for non-C4 models: FastRCNNConvFCHead,
-_C.MODEL.ROI_BOX_HEAD.NAME = ""
+# Options for non-C4 models: ,
+_C.MODEL.ROI_BOX_HEAD.NAME = "PVT4BoxHead"
 # Options are: "smooth_l1", "giou", "diou", "ciou"
 _C.MODEL.ROI_BOX_HEAD.BBOX_REG_LOSS_TYPE = "smooth_l1"
 # The final scaling coefficient on the box regression loss, used to balance the magnitude of its
@@ -317,7 +318,7 @@ _C.MODEL.ROI_BOX_HEAD.POOLER_TYPE = "ROIAlignV2"
 _C.MODEL.ROI_BOX_HEAD.NUM_FC = 0
 # Hidden layer dimension for FC layers in the RoI box head
 _C.MODEL.ROI_BOX_HEAD.FC_DIM = 1024
-_C.MODEL.ROI_BOX_HEAD.NUM_CONV = 0
+_C.MODEL.ROI_BOX_HEAD.NUM_CONV = 1
 # Channel dimension for Conv layers in the RoI box head
 _C.MODEL.ROI_BOX_HEAD.CONV_DIM = 256
 # Normalization method for the convolution layers.
@@ -489,7 +490,7 @@ _C.MODEL.RETINANET.NORM = ""
 _C.MODEL.RESNETS = CN()
 
 _C.MODEL.RESNETS.DEPTH = 50
-_C.MODEL.RESNETS.OUT_FEATURES = ["res4"]  # res4 for C4 backbone, res2..5 for FPN backbone
+_C.MODEL.RESNETS.OUT_FEATURES = ["pvt4"]  # res4 for C4 backbone, res2..5 for FPN backbone
 
 # Number of groups to use; 1 ==> ResNet; > 1 ==> ResNeXt
 _C.MODEL.RESNETS.NUM_GROUPS = 1
@@ -522,6 +523,29 @@ _C.MODEL.RESNETS.DEFORM_MODULATED = False
 # Number of groups in deformable conv.
 _C.MODEL.RESNETS.DEFORM_NUM_GROUPS = 1
 
+
+# ---------------------------------------------------------------------------- #
+# PVT options
+# Note that parts of a resnet may be used for both the backbone and the head
+# These options apply to both
+# ---------------------------------------------------------------------------- #
+_C.MODEL.PVT = CN()
+
+_C.MODEL.PVT.GLOBAL_POOL = 'avg'
+_C.MODEL.PVT.DEPTHS = [3, 4, 6, 3]
+_C.MODEL.PVT.EMBED_DIMS = [64, 128, 320, 512]
+_C.MODEL.PVT.NUM_HEADS = [1, 2, 5, 8]
+_C.MODEL.PVT.SR_RATIOS = [8, 4, 2, 1]
+_C.MODEL.PVT.MLP_RATIOS = [8, 8, 4, 4]
+_C.MODEL.PVT.QKV_BIAS = True
+_C.MODEL.PVT.LINEAR = True
+_C.MODEL.PVT.DROP_RATE = 0.0
+_C.MODEL.PVT.PROJ_DROP_RATE = 0.0
+_C.MODEL.PVT.ATTN_DROP_RATE = 0.0
+_C.MODEL.PVT.DROP_PATH_RATE = 0.1
+_C.MODEL.PVT.NORM_LAYER = "LN"
+# _C.MODEL.PVT.OUT_FEATURES = ["pvt2", "pvt3", "pvt4"]
+_C.MODEL.PVT.OUT_FEATURES = [ "pvt3", "pvt4"]
 
 # ---------------------------------------------------------------------------- #
 # Solver
@@ -634,7 +658,7 @@ _C.TEST.PRECISE_BN.NUM_ITER = 200
 # Misc options
 # ---------------------------------------------------------------------------- #
 # Directory where output files are written
-_C.OUTPUT_DIR = "./output"
+_C.OUTPUT_DIR = ""
 # Set seed to negative to fully randomize everything.
 # Set seed to positive to use a fixed seed. Note that a fixed seed increases
 # reproducibility but does not guarantee fully deterministic behavior.
@@ -670,9 +694,12 @@ _C.SOLVER.SOLVER_TYPE = "adamw"
 # Few shot setting
 # ---------------------------------------------------------------------------- #
 _C.INPUT.FS = CN()
+# Whether to enable two-branch 'few-shot' setting
+_C.INPUT.FS.ENABLED = False
+# Whether to enable the actual few-shot examples setting
 _C.INPUT.FS.FEW_SHOT = False
 _C.INPUT.FS.SUPPORT_WAY = 2
-_C.INPUT.FS.SUPPORT_SHOT = 10
+_C.INPUT.FS.SUPPORT_SHOT = 0
 _C.INPUT.FS.SUPPORT_EXCLUDE_QUERY = False
 
 # _C.DATASETS.TRAIN_KEEPCLASSES = 'all'
@@ -682,7 +709,7 @@ _C.DATASETS.SEEDS = 0
 
 _C.MODEL.BACKBONE.TYPE = "pvt_v2_b2_li"
 _C.MODEL.BACKBONE.ONLY_TRAIN_NORM = False
-_C.MODEL.BACKBONE.TRAIN_BRANCH_EMBED = True
+_C.MODEL.BACKBONE.TRAIN_BRANCH_EMBED = (True, True, True, True)
 _C.MODEL.RPN.FREEZE_RPN = False
 _C.MODEL.ROI_HEADS.FREEZE_ROI_FEATURE_EXTRACTOR = False
 _C.MODEL.ROI_HEADS.ONLY_TRAIN_NORM = False

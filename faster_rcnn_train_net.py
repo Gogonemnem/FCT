@@ -18,7 +18,6 @@ from FCT.config import get_cfg
 from FCT.data.build import build_detection_train_loader, build_detection_test_loader
 from FCT.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator, DIOREvaluator, DOTAEvaluator
 from FCT.solver import build_optimizer
-import FCT.modeling.fsod.pvt_roi_heads
 
 import bisect
 import copy

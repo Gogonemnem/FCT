@@ -4,18 +4,9 @@ MODEL:
   PIXEL_STD: [57.375, 57.120, 58.395]
   WEIGHTS: "./output/fsod/two_branch_training_dota_pvt_v2_b2_li/model_final.pth"
   MASK_ON: False
-  RESNETS:
-    DEPTH: 101
   BACKBONE:
     FREEZE_AT: 4
-    NAME: "build_FCT_backbone"
-    TYPE: "pvt_v2_b2_li"
-    TRAIN_BRANCH_EMBED: False
-  ROI_HEADS:
-    SCORE_THRESH_TEST: 0.0
-  RPN:
-    PRE_NMS_TOPK_TEST: 12000
-    POST_NMS_TOPK_TEST: 100
+    TRAIN_BRANCH_EMBED: [False, False, False, False]
 DATASETS:
   TRAIN: ("dota_2014_train_full_10_shot",)
   TEST: ("dota_2014_val2",)
@@ -38,5 +29,3 @@ INPUT:
   MAX_SIZE_TEST: 1000
 OUTPUT_DIR: './output/fsod/finetune_dir/two_branch_10shot_finetuning_dota_pvt_v2_b2_li'
 DATA_DIR: './datasets/data/dota_dataset'
-TEST:
-  EVAL_PERIOD: 5000

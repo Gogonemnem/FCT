@@ -4,18 +4,10 @@ MODEL:
   PIXEL_STD: [57.375, 57.120, 58.395]
   WEIGHTS: "./weights/pvt_v2_b2_li.pth" #"./pvt_v2_b2_li_C4.pth"
   MASK_ON: False
-  RESNETS:
-    DEPTH: 101
-  BACKBONE:
-    FREEZE_AT: 1
-    NAME: "build_PVT_backbone"
-    TYPE: "pvt_v2_b2_li"
   META_ARCHITECTURE: "GeneralizedRCNN"
   RPN:
     PRE_NMS_TOPK_TEST: 6000
     POST_NMS_TOPK_TEST: 1000
-  ROI_HEADS:
-    NAME: "PVTROIHeads"
 DATASETS:
   TRAIN: ("dota_2014_train_nonvoc_with_small",)
   TEST: ("dota_2014_val2",) #("coco_2014_val",)
