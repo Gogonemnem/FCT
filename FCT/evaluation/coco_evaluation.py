@@ -122,7 +122,80 @@ class BaseCOCOEvaluator(DatasetEvaluator):
             if "proposals" in output:
                 prediction["proposals"] = output["proposals"].to(self._cpu_device)
 
+            from detectron2.utils.events import EventStorage
+            with EventStorage() as es: # dummy storage
+                from PIL import Image
+                self.visualize_inference(inputs, outputs)
+                # Convert numpy array to PIL Image
+                image = Image.fromarray(np.transpose(es._vis_data[0][1], (1, 2, 0)))
+
+                # Save the image
+                import random
+                image.save(f"evaluator{random.random()}.jpg")
             self._predictions.append(prediction)
+    
+    def visualize_inference(self, batched_inputs, proposals):
+        """
+        A function used to visualize images and proposals. It shows ground truth
+        bounding boxes on the original image and up to 20 top-scoring predicted
+        object proposals on the original image. Users can implement different
+        visualization functions for different models.
+
+        Args:
+            batched_inputs (list): a list that contains input to the model.
+            proposals (list): a list that contains predicted proposals. Both
+                batched_inputs and proposals should have the same length.
+        """
+        from detectron2.utils.visualizer import Visualizer
+        from detectron2.data.detection_utils import convert_image_to_rgb
+        from detectron2.utils.events import get_event_storage
+
+        storage = get_event_storage()
+        max_vis_prop = 20
+
+        for input, prop in zip(batched_inputs, proposals):
+            img = input["image"]
+            # raise Exception(input)
+
+            import torchvision.transforms as transforms
+            img = convert_image_to_rgb(transforms.Resize((512, 512))(img.unsqueeze(0)).squeeze(0).permute(1, 2, 0), "BGR")
+            
+            v_gt = Visualizer(img, None)
+
+            coco = self._coco_api
+            annotations = coco.loadAnns(coco.getAnnIds(imgIds=input["image_id"]))
+            # annotations = [ann['bbox'] for ann in input['annotations']]
+
+            category_ids = [ann['category_id'] for ann in annotations]
+            boxes = [ann['bbox'] for ann in annotations]
+            bbox_tensor = Boxes(torch.tensor(boxes))
+
+            bbox_tensor = BoxMode.convert(bbox_tensor.tensor, BoxMode.XYWH_ABS, BoxMode.XYXY_ABS)
+            v_gt = v_gt.overlay_instances(boxes=Boxes(bbox_tensor), labels=category_ids)
+            anno_img = v_gt.get_image()
+            box_size = min(len(prop['instances'].pred_boxes), max_vis_prop)
+
+            box_size = min(len(prop['instances'].pred_boxes), max_vis_prop)
+            pred_boxes = prop['instances'].pred_boxes[0:box_size].tensor.cpu().numpy()
+            pred_classes = prop['instances'].pred_classes[0:box_size].cpu().numpy()
+            pred_scores = prop['instances'].scores[0:box_size].cpu().numpy()
+
+            # Combine classes and scores into labels
+            labels = [f"{cls+1}: {score:.2f}" for cls, score in zip(pred_classes, pred_scores)]
+
+
+            v_pred = Visualizer(img, None)
+            v_pred = v_pred.overlay_instances(
+                boxes=pred_boxes,
+                labels=labels
+            )
+            prop_img = v_pred.get_image()
+            vis_img = np.concatenate((anno_img, prop_img), axis=1)
+            # vis_img = np.concatenate((prop_img, prop_img), axis=1)
+            vis_img = vis_img.transpose(2, 0, 1)
+            vis_name = "Left: GT bounding boxes;  Right: Predicted boxes"
+            storage.put_image(vis_name, vis_img)
+            break  # only visualize one image in a batch
 
     def evaluate(self):
         if self._distributed:

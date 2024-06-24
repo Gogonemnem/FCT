@@ -241,6 +241,17 @@ class FsodRCNN(GeneralizedRCNN):
                 support_features_dict[way] = support_features
                 query_features_dict[way] = query_features
                 support_boxes_dict[way] = support_boxes
+                from detectron2.utils.events import EventStorage
+                with EventStorage() as es: # dummy storage
+                    from PIL import Image
+                    
+                    self.visualize_training(batched_inputs, proposals)
+                    # Convert numpy array to PIL Image
+                    image = Image.fromarray(np.transpose(es._vis_data[0][1], (1, 2, 0)))
+
+                    from random import random
+                    # Save the image
+                    image.save(f"training{random()}.jpg")
 
             _, det_losses = self.roi_heads(query_images, query_features_dict, support_proposals_dict, support_features_dict, support_boxes_dict, query_gt_instances) # rcnn
             
@@ -299,6 +310,29 @@ class FsodRCNN(GeneralizedRCNN):
             query_images = ImageList.from_tensors([images[i]]) # one query image
         
             for cls_id, support_images in self.support_dict['image'].items():
+                from PIL import Image
+                # Convert numpy array to PIL Image
+                        # Convert tensor to numpy array and ensure the correct shape
+                imageeee = support_images.tensor[1].cpu().numpy()
+                
+                # Assuming the tensor is in (C, H, W) format, transpose to (H, W, C)
+                imageeee = np.transpose(imageeee, (1, 2, 0))
+
+                # De-normalize the image
+                mean = np.array([0.485, 0.456, 0.406])
+                std = np.array([0.229, 0.224, 0.225])
+                
+                imageeee = std * imageeee + mean
+                imageeee = np.clip(imageeee, 0, 1)
+                
+                # Ensure the values are in the valid range for image data
+                if imageeee.max() > 1.0:
+                    imageeee = (imageeee * 255).astype(np.uint8)
+                else:
+                    imageeee = (imageeee * 255).astype(np.uint8)
+                # Save the image
+                image = Image.fromarray(imageeee)
+                image.save(f"inf{cls_id}.jpg")
                 query_features, support_features = self.backbone(query_images.tensor, support_images.tensor)
 
                 support_boxes = self.support_dict['box'][cls_id]
@@ -318,15 +352,15 @@ class FsodRCNN(GeneralizedRCNN):
         """
         Normalize, pad and batch the input images.
         """
-        images = [x["image"].to(self.device) for x in batched_inputs]
-        images = [(x - self.pixel_mean) / self.pixel_std for x in images]
-        images = ImageList.from_tensors(images, self.backbone.size_divisibility)
-        if self.training:
-            # support images
-            support_images = [x['support_images'].to(self.device) for x in batched_inputs]
-            support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
-            support_images = ImageList.from_tensors(support_images, self.backbone.size_divisibility)
-
-            return images, support_images
-        else:
+        images = super().preprocess_image(batched_inputs)
+        if not self.training:
             return images
+
+        support_images = [self._move_to_current_device(x["support_images"]) for x in batched_inputs]
+        support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
+        support_images = ImageList.from_tensors(
+            support_images,
+            self.backbone.size_divisibility,
+            padding_constraints=self.backbone.padding_constraints,
+        )
+        return images, support_images
