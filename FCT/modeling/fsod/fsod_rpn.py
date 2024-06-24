@@ -54,15 +54,70 @@ class FsodRPN(RPN):
         }
         return {"per_level_roi_poolers": poolers}
     
+    # def forward(
+    #     self,
+    #     images: ImageList,
+    #     query_features: Dict[str, torch.Tensor],
+    #     support_features: Dict[str, torch.Tensor],
+    #     support_boxes: List[Boxes],
+    #     gt_instances: Optional[List[Instances]] = None,
+    # ):
+    #     raise NotImplementedError("Implement this method in subclass.")
+
     def forward(
         self,
         images: ImageList,
-        query_features: Dict[str, torch.Tensor],
-        support_features: Dict[str, torch.Tensor],
-        support_boxes: List[Boxes],
+        features: Dict[str, torch.Tensor],
         gt_instances: Optional[List[Instances]] = None,
+        neg_class: Optional[bool] = False,
     ):
-        raise NotImplementedError("Implement this method in subclass.")
+        """
+        Args:
+            images (ImageList): input images of length `N`
+            features (dict[str, Tensor]): input data as a mapping from feature
+                map name to tensor. Axis 0 represents the number of images `N` in
+                the input data; axes 1-3 are channels, height, and width, which may
+                vary between feature maps (e.g., if a feature pyramid is used).
+            gt_instances (list[Instances], optional): a length `N` list of `Instances`s.
+                Each `Instances` stores ground-truth instances for the corresponding image.
+
+        Returns:
+            proposals: list[Instances]: contains fields "proposal_boxes", "objectness_logits"
+            loss: dict[Tensor] or None
+        """
+        features = [features[f] for f in self.in_features]
+        anchors = self.anchor_generator(features)
+
+        pred_objectness_logits, pred_anchor_deltas = self.rpn_head(features)
+        # Transpose the Hi*Wi*A dimension to the middle:
+        pred_objectness_logits = [
+            # (N, A, Hi, Wi) -> (N, Hi, Wi, A) -> (N, Hi*Wi*A)
+            score.permute(0, 2, 3, 1).flatten(1)
+            for score in pred_objectness_logits
+        ]
+        pred_anchor_deltas = [
+            # (N, A*B, Hi, Wi) -> (N, A, B, Hi, Wi) -> (N, Hi, Wi, A, B) -> (N, Hi*Wi*A, B)
+            x.view(x.shape[0], -1, self.anchor_generator.box_dim, x.shape[-2], x.shape[-1])
+            .permute(0, 3, 4, 1, 2)
+            .flatten(1, -2)
+            for x in pred_anchor_deltas
+        ]
+
+        if self.training:
+            assert gt_instances is not None, "RPN requires gt_instances in training!"
+            gt_labels, gt_boxes = self.label_and_sample_anchors(anchors, gt_instances)
+            if neg_class:
+                for item in gt_labels:
+                    item[item == 1] = 0
+            losses = self.losses(
+                anchors, pred_objectness_logits, gt_labels, pred_anchor_deltas, gt_boxes
+            )
+        else:
+            losses = {}
+        proposals = self.predict_proposals(
+            anchors, pred_objectness_logits, pred_anchor_deltas, images.image_sizes
+        )
+        return proposals, losses
 
     def per_level_roi_pooling(self, features, boxes):
         box_features = {}
@@ -81,12 +136,13 @@ class AttentionRPN(FsodRPN):
         support_features: Dict[str, torch.Tensor],
         support_boxes: List[Boxes],
         gt_instances: Optional[List[Instances]] = None,
+        neg_class: Optional[bool] = False,
     ):
         support_box_features = self.per_level_roi_pooling(support_features, support_boxes)
         support_box_features = {k: v.mean(dim=[0, 2, 3], keepdim=True) for k, v in support_box_features.items()}
 
         rpn_features = {key: F.conv2d(query_features[key], support_box_features[key].permute(1,0,2,3), groups=query_features[key].shape[1]) for key in support_box_features.keys()} # attention map for attention-style rpn
-        return RPN.forward(self, images, rpn_features, gt_instances) # standard rpn
+        return super().forward(images, rpn_features, gt_instances, neg_class) # standard rpn
 
 
 @PROPOSAL_GENERATOR_REGISTRY.register()
@@ -126,6 +182,7 @@ class CrossScalesRPN(FsodRPN):
         support_features: Dict[str, torch.Tensor],
         support_boxes: List[Boxes],
         gt_instances: Optional[List[Instances]] = None,
+        neg_class: Optional[bool] = False,
     ):
         support_box_features = self.per_level_roi_pooling(support_features, support_boxes)
         original_query_shapes = {key: query_features[key].shape for key in self.in_features}
@@ -146,7 +203,7 @@ class CrossScalesRPN(FsodRPN):
             rpn_features[key] = features[i].reshape(batch_size, -1, *spatial_dims)
 
         # del features, query_cat, support_cat
-        return RPN.forward(self, images, rpn_features, gt_instances) # standard rpn
+        return super().forward(images, rpn_features, gt_instances, neg_class) # almost standard rpn
 
 class CrossScaleAttention(Attention): ### PVTv2 VARIANT
     def __init__(

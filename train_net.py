@@ -224,17 +224,18 @@ def update_output_dir(cfg):
     cfg.OUTPUT_DIR = output_dir
 
 def update_weights(cfg):
+    parent_dir = os.path.dirname(os.path.dirname(cfg.OUTPUT_DIR))
     if cfg.INPUT.FS.FEW_SHOT:
-        training_dir = os.path.join(cfg.OUTPUT_DIR, "training")
+        training_dir = os.path.join(parent_dir, "training")
     elif cfg.INPUT.FS.ENABLED:
-        training_dir = os.path.join(cfg.OUTPUT_DIR, "pretraining")
+        parent_dir = parent_dir.replace("_fsod", "")
+        training_dir = os.path.join(parent_dir, "pretraining")
     else:
         return
 
     weights_file = os.path.join(training_dir, "model_final.pth")
     if not os.path.exists(weights_file):
         return
-    
     cfg.MODEL.WEIGHTS = os.path.join(training_dir, "model_final.pth")
 
 

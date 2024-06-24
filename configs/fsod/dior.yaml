@@ -12,5 +12,5 @@ INPUT:
   MAX_SIZE_TRAIN: 1333
   MIN_SIZE_TEST: 800
   MAX_SIZE_TEST: 1333
-DATA_DIR: "./datasets/data/dota_dataset"
+DATA_DIR: "./datasets/data/DIOR"
 VERSION: 2

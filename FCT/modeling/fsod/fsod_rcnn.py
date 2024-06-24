@@ -229,7 +229,7 @@ class FsodRCNN(GeneralizedRCNN):
                 support_boxes = batched_inputs[i]['support_bboxes'][way*self.support_shot:(way+1)*self.support_shot]
                 support_boxes = [Boxes(box[np.newaxis, :]).to(self.device) for box in support_boxes]
 
-                proposals, prop_losses = self.proposal_generator(query_images, query_features, support_features, support_boxes, query_gt_instances)
+                proposals, prop_losses = self.proposal_generator(query_images, query_features, support_features, support_boxes, query_gt_instances, way>0)
 
                 if proposal_losses is None:
                     proposal_losses = prop_losses
