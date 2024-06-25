@@ -153,23 +153,20 @@ class DatasetMapperWithSupportCOCO(DatasetMapper):
         # Randomly select the rest of the classes to fill up the support set
         num_needed_classes = support_way - 1  # One less because we already included a query class
         if num_needed_classes > 0:
-            if len(remaining_classes) + len(query_classes) - 1 < num_needed_classes:
-                additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=True)
-            else:
-                additional_classes = np.random.choice(list(query_classes) + remaining_classes, size=num_needed_classes, replace=False)
+            is_not_enough = len(remaining_classes) < num_needed_classes
+            additional_classes = np.random.choice(remaining_classes, size=num_needed_classes, replace=is_not_enough)
             sampled_classes.extend(additional_classes)
             
         support_data_all = []
         support_box_all = []
         support_category_id = []
+        used_id_ls = []  # Track used support IDs
 
         for cls in sampled_classes:
             # Get the support examples for this class
             support_list = self.support_df[self.support_df['category_id'] == cls]
-            if len(support_list) < support_shot:
-                chosen_support = support_list.sample(n=support_shot, replace=True)
-            else:
-                chosen_support = support_list.sample(n=support_shot, replace=False)
+            is_not_enough = len(support_list) < support_shot
+            chosen_support = support_list[~support_list['id'].isin(used_id_ls)].sample(n=support_shot, replace=is_not_enough)
 
             for _, support_item in chosen_support.iterrows():
                 support_data = utils.read_image(os.path.join(self.data_dir, "coco", support_item["file_path"]), format=self.image_format)
@@ -179,6 +176,7 @@ class DatasetMapperWithSupportCOCO(DatasetMapper):
                 support_data_all.append(support_tensor)
                 support_box_all.append(torch.tensor(support_box))
                 support_category_id.append(cls)
+                used_id_ls.append(support_item['id'])
 
         # Convert lists to tensors for processing
         support_data_all = torch.stack(support_data_all)
