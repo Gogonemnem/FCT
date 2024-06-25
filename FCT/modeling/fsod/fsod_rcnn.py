@@ -246,16 +246,16 @@ class FsodRCNN(GeneralizedRCNN):
                 support_features_dict[way] = support_features
                 query_features_dict[way] = query_features
                 support_boxes_dict[way] = support_boxes
-                from detectron2.utils.events import EventStorage
-                with EventStorage() as es: # dummy storage
-                    from PIL import Image
+                # from detectron2.utils.events import EventStorage
+                # with EventStorage() as es: # dummy storage
+                #     from PIL import Image
                     
-                    self.visualize_training(batched_inputs, proposals)
-                    # Convert numpy array to PIL Image
-                    image = Image.fromarray(np.transpose(es._vis_data[0][1], (1, 2, 0)))
+                #     self.visualize_training(batched_inputs, proposals)
+                #     # Convert numpy array to PIL Image
+                #     image = Image.fromarray(np.transpose(es._vis_data[0][1], (1, 2, 0)))
 
-                    # Save the image
-                    image.save(f"training-image{c}-support{way}.jpg")
+                #     # Save the image
+                #     image.save(f"training-image{c}-support{way}.jpg")
 
             _, det_losses = self.roi_heads(query_images, query_features_dict, support_proposals_dict, support_features_dict, support_boxes_dict, query_gt_instances) # rcnn
             
