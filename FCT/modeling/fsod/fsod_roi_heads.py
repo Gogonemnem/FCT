@@ -101,7 +101,6 @@ class FsodStandardROIHeads(StandardROIHeads):
         num_classes = len(support_proposals_dict)
 
         for cls_id, proposals in support_proposals_dict.items():
-            print(cls_id)
             if self.training:
                 assert targets
                 proposals = self.label_and_sample_proposals(proposals, targets)

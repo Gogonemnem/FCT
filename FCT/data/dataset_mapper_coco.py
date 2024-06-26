@@ -141,10 +141,17 @@ class DatasetMapperWithSupportCOCO(DatasetMapper):
         support_shot = self.support_shot  # Number of examples per class
 
         # Extract classes present in the query image
-        query_classes = set([anno['category_id'] for anno in dataset_dict['annotations']])
+        chosen_query_class = dataset_dict['annotations'][0]['category_id'] # take first annotation as there is only one (due to preprocessing)
+        query_img = dataset_dict['image_id']
+        query_classes = set(self.support_df.loc[self.support_df['image_id'] == query_img, 'category_id'].unique())
+        
+        # TODO: Sometimes the query image is not in the support set
+        if len(query_classes) == 0:
+            query_classes = set([chosen_query_class])
+            # raise Exception(self.support_df.loc[self.support_df['image_id'] == query_img, 'image_id'].unique(), self.support_df['image_id'].unique(), query_img, query_classes)
+            # raise Exception(query_classes, chosen_query_class)
         
         # Ensure at least one query class is included in the support set
-        chosen_query_class = np.random.choice(list(query_classes))
         sampled_classes = [chosen_query_class]
 
         # Gather all possible classes excluding the (already chosen) query class(es)
@@ -182,7 +189,3 @@ class DatasetMapperWithSupportCOCO(DatasetMapper):
         support_data_all = torch.stack(support_data_all)
         support_box_all = torch.stack(support_box_all)
         return support_data_all, support_box_all, support_category_id
-
-
-
-

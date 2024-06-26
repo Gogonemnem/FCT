@@ -122,16 +122,16 @@ class BaseCOCOEvaluator(DatasetEvaluator):
             if "proposals" in output:
                 prediction["proposals"] = output["proposals"].to(self._cpu_device)
 
-            from detectron2.utils.events import EventStorage
-            with EventStorage() as es: # dummy storage
-                from PIL import Image
-                self.visualize_inference(inputs, outputs)
-                # Convert numpy array to PIL Image
-                image = Image.fromarray(np.transpose(es._vis_data[0][1], (1, 2, 0)))
+            # from detectron2.utils.events import EventStorage
+            # with EventStorage() as es: # dummy storage
+            #     from PIL import Image
+            #     self.visualize_inference(inputs, outputs)
+            #     # Convert numpy array to PIL Image
+            #     image = Image.fromarray(np.transpose(es._vis_data[0][1], (1, 2, 0)))
 
-                # Save the image
-                import random
-                image.save(f"evaluator{random.random()}.jpg")
+            #     # Save the image
+            #     import random
+            #     image.save(f"evaluator{random.random()}.jpg")
             self._predictions.append(prediction)
     
     def visualize_inference(self, batched_inputs, proposals):
